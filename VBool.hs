@@ -23,8 +23,8 @@ howTrue :: VBool -> Double
 howTrue (V v) = v
 
 isTrue, isFalse :: VBool -> Bool
-isTrue  (V v) = v >= 1
-isFalse (V v) = v >= (-1)
+isTrue (V v) = v >= 1
+isFalse      = not . isTrue
 
 (#) :: VBool -> Double -> VBool
 V v # a | a >= 1 = V (v*a)
@@ -46,14 +46,16 @@ big = 100000
 nt :: VBool -> VBool
 nt (V x) = V (-x)
 
-(&&%), (||%) :: VBool -> VBool -> VBool
+(&&%) :: VBool -> VBool -> VBool
 V x &&% V y = V (x `min` y)
-V x ||% V y = V (x `max` y)
 
-(&&+), (||+) :: VBool -> VBool -> VBool
+(&&+) :: VBool -> VBool -> VBool
 V x &&+ V y
   | signum x == signum y = V (x + y - signum x)
   | otherwise            = V (x `min` y)
+
+(||%), (||+) :: VBool -> VBool -> VBool
+x ||% y = nt (nt x &&% nt y)      
 x ||+ y = nt (nt x &&+ nt y)      
 
 --------------------------------------------------------------------------------

@@ -1,5 +1,9 @@
 module Main where
 
+{-
+Applying Data.hs to regular expression testing.
+-}
+
 import Test.QuickCheck
 import Control.Monad( liftM, liftM2 )
 import VBool

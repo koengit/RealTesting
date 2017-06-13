@@ -1,5 +1,9 @@
 module Data where
 
+{-
+Varying the data-part of test data by means of expressing them as numerical data.
+-}
+
 import Test.QuickCheck
 import Numeric.GSL.Minimization
 import VBool
@@ -56,6 +60,7 @@ forData x h =
   x'   = fill x (fst opt)
   k    = length (lines (show (snd opt))) - 1
 
+-- dummy implmentation without NM for comparison
 forData0 :: (Show a, Data a) => a -> (a -> VBool) -> Property
 forData0 x h =
   whenFail (print x) $ isTrue (h x)

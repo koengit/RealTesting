@@ -36,7 +36,7 @@ V v #+ a
   | otherwise = V (v-a)
 
 inv :: VBool -> VBool
-inv (V v) = V (big / v)
+inv (V v) = V (signum v + (big / v))
 
 big :: Double
 big = 100000

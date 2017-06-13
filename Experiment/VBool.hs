@@ -22,9 +22,10 @@ instance Testable VBool where
   property = property . toBool
 
 (==%) :: HasShape a => a -> a -> VBool
-a ==% b = (shapeOf a ==% shapeOf b)
-          &&+
-          (VBool (1 - distance (measure a) (measure b)))
+a ==% b = if (shapeOf a == shapeOf b) then
+            (VBool (1 - distance (measure a) (measure b)))
+          else
+            (VBool (0 - distance (measure a) (measure b)))
 
 (%==>) :: VBool -> VBool -> VBool
 a %==> b = nt a ||+ b

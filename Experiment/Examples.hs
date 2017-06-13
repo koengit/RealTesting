@@ -30,11 +30,11 @@ data BTree a = Leaf a
              deriving (Show, Eq, Ord)
 
 instance HasShape a => HasShape (BTree a) where
-  shapeOf (Leaf x)   = Nested [shapeOf x]
-  shapeOf (Node x y) = Nested [shapeOf x, shapeOf y]
+  shapeOf (Leaf x)   = Nested 0 [shapeOf x]
+  shapeOf (Node x y) = Nested 1 [shapeOf x, shapeOf y]
 
-  fromRn (Nested [s]) ds    = Leaf (fromRn s ds)
-  fromRn (Nested [l, r]) ds = Node (fromRn l (take (flatten l) ds))
+  fromRn (Nested 0 [s]) ds    = Leaf (fromRn s ds)
+  fromRn (Nested 1 [l, r]) ds = Node (fromRn l (take (flatten l) ds))
                                    (fromRn r (drop (flatten l) ds))
 
   measure (Leaf x)   = measure x

@@ -1,5 +1,6 @@
 module Falsify ( module VBool
                , module Shape
+               , patternSearch
                , falsifyWithTrace
                , satisfyWithTrace
                , falsify

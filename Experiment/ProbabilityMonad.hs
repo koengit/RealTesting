@@ -17,11 +17,11 @@ poly ps xi = let x = fromInteger (toInteger xi) in
   sum [ p * (x ** i) | (i, p) <- zip [0.0 ..] ps ]
 
 depthBounded :: Generator (Tree ())
-depthBounded d params = case d of
+depthBounded d params = norm $ case d of
   0 -> return Leaf
   _ -> do
-    left  <- norm $ depthBounded (d - 1) params
-    right <- norm $ depthBounded (d - 1) params
+    left  <- depthBounded (d - 1) params
+    right <- depthBounded (d - 1) params
     freq [(1, Leaf), (poly params d, Node () left right)]
 
 sizeBounded :: Generator (Int, Tree ())

@@ -4,23 +4,30 @@ import Data.List
 
 type Point = [Double]
 
-minimize :: Ord a
-         => (a -> a -> Bool) -> Point -> Point -> (Point -> a) -> (Point,a)
-minimize stop box p h = go (sort [ (h p, p) | p <- ps ])
+-- helper function, most common use (?)
+stopping :: (a -> Bool) -> [a] -> a
+stopping p [x]                = x
+stopping p (x:xs) | p x       = x
+                  | otherwise = stopping p xs
+
+-- produces an infinite list of (point,best-result,worst-result)
+minimize :: Ord a => Point -> Point -> (Point -> a) -> [(Point,a,a)]
+minimize box p h = go (sort [ (h p, p) | p <- ps ])
  where
   ps = p : [ take i p ++ [x] ++ drop (i+1) p
            | (x,i) <- zipWith (+) p box `zip` [0..]
            ]
 
-  go xps
-    | stop x0 x = (p0,x0)
-    | x' > x    = go (sort [ (h p',p') | (_,p) <- xps, let p' = p -->+ p0 ])
-    | otherwise = go (insert (x',p') xps')
+  go xps =
+    (p0,x0,x1) :
+    if x' > x1
+      then go (sort [ (h p',p') | (_,p) <- xps, let p' = p -->+ p0 ])
+      else go (insert (x',p') xps')
    where
     (x0,p0) = head xps
     xps'    = init xps
-    (x,p)   = last xps
-    p'      = p -+-> centroid (map snd xps')
+    (x1,p1) = last xps
+    p'      = p1 -+-> centroid (map snd xps')
     x'      = h p'
 
 centroid :: [Point] -> Point

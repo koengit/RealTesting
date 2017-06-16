@@ -21,7 +21,7 @@ minimize box p h = go (sort [ (h p, p) | p <- ps ])
   go xps =
     (p0,x0,x1) :
     if x' > x1
-      then go (sort [ (h p',p') | (_,p) <- xps, let p' = p -->+ p0 ])
+      then go (sort ((x0,p0):[ (h p',p') | (_,p) <- tail xps, let p' = p -->+ p0 ]))
       else go (insert (x',p') xps')
    where
     (x0,p0) = head xps

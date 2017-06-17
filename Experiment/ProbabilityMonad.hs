@@ -36,9 +36,9 @@ quality :: Ord a => T Double a -> Double
 quality t = minimum (map snd (decons (norm t)))
 
 optimize n =
-  fst $ minimize 200 (\a b -> abs (a - b) < 1e-16)
+  fst $ minimize 1000 (\a b -> abs (a - b) < 1e-16)
                  [1,1,1]
-                 ((1*) <$> [1,1,1])
+                 ((5*) <$> [1,1,1])
                  (negate . quality . (depthBounded n))
 optimize' n =
   fst $ minimize 1000000 (\a b -> abs (a - b) < 1e-16)

@@ -2,6 +2,7 @@ module Neighbour where
 
 import Data.Ord
 import Data.List
+import Test.QuickCheck
 
 import VBool
 
@@ -21,25 +22,27 @@ triangular (xs:xss) =
   let rest = triangular xss in
     concat $ [ map (x:) rest | x <- xs ]
 
-hillClimb :: (HasNeighbours a, Ord m) => Int -> (a -> Bool) -> a -> (a -> m) -> a
-hillClimb 0 stopping a meas = a
+hillClimb :: (HasNeighbours a, Ord m)
+          => Int -> (a -> Bool) -> a -> (a -> m) -> Gen a
+hillClimb 0 stopping a meas = return a
 hillClimb n stopping a meas
-  | stopping a          = a
-  | null (neighbours a) = a
-  | otherwise          =
-    let best = maximumBy (comparing meas) (neighbours a) in
-      if meas best > meas a then
-        hillClimb (n - 1) stopping best meas
+  | stopping a          = return a
+  | null (neighbours a) = return a
+  | otherwise          = do
+      b <- elements (neighbours a)
+      if meas b > meas a then
+        hillClimb (n - 1) stopping b meas
       else
-        a
+        hillClimb (n - 1) stopping a meas
 
-satisfy :: HasNeighbours a => (a -> VBool) -> a -> Maybe a
-satisfy prop a =
-  let best = hillClimb 1000 (toBool . prop) a (unVBool . prop) in
-   if toBool (prop best) then
-    Just best
-   else
-    Nothing
+satisfy :: HasNeighbours a => (a -> VBool) -> a -> IO (Maybe a)
+satisfy prop a = do
+  let best = hillClimb 1000 (toBool . prop) a (unVBool . prop)
+  b <- generate best
+  if toBool (prop b) then
+   return (Just b)
+  else
+   return Nothing
 
 --------------------------------
 

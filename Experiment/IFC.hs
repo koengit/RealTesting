@@ -10,6 +10,35 @@ import Shape
 data Instr = Push LInt | Pop | Load | Store | Add | Noop | Halt
   deriving (Ord, Eq, Show)
 
+instance HasShape Instr where
+
+  shapeOf i = case i of
+    Push li -> Nested 0 [shapeOf li]
+    Pop     -> Nested 0 [Nary 0]
+    Load    -> Nested 0 [Nary 0]
+    Store   -> Nested 0 [Nary 0]
+    Add     -> Nested 0 [Nary 0]
+    Noop    -> Nested 0 [Nary 0]
+    Halt    -> Nested 0 [Nary 0]
+
+  fromRn (Nested 0 [lis]) xs = Push (fromRn lis xs)
+  fromRn (Nested _ _) [x]  = case round x of
+    0 -> Pop
+    1 -> Load
+    2 -> Store
+    3 -> Add
+    4 -> Noop
+    5 -> Halt
+
+  measure (Push li) = measure li
+  measure i         = [case i of
+    Pop  -> 0
+    Load -> 1
+    Store -> 2
+    Add -> 3
+    Noop -> 4
+    Halt -> 5]
+
 newtype Program = Program [Instr] deriving (Ord, Eq, Show)
 
 instance HasNeighbours Program where
@@ -124,4 +153,9 @@ indist_value (i, l) (j, l') =
   (l ==% H &&+ l' ==% H) ||+ (i ==% j &&+ l ==% L &&+ l' ==% L)
 
 indist_instr :: Instr -> Instr -> VBool
-indist_instr _ _ = undefined
+indist_instr i j = i ==% j ||+
+  (case (i, j) of (Push v0, Push v1) -> indist_value v0 v1; _ -> false)
+
+(~=) :: MachineState -> MachineState -> VBool
+m0 ~= m1 = andP (zipWith indist_instr (program m0) (program m1)) &&+
+           andP (zipWith indist_value (memory m0) (memory m1))

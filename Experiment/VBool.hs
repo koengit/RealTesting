@@ -23,9 +23,14 @@ instance Testable VBool where
 
 (==%) :: HasShape a => a -> a -> VBool
 a ==% b = if (shapeOf a == shapeOf b) then
-            (VBool (1 - distance (measure a) (measure b)))
+            norm $ VBool (1 - distance (measure a) (measure b))
           else
-            (VBool (0 - distance (measure a) (measure b)))
+            norm $ VBool (0 - distance (measure a) (measure b))
+
+infix  4 ==%
+infixr 3 &&+
+infixr 3 ||+
+infixr 1 %==>
 
 (%==>) :: VBool -> VBool -> VBool
 a %==> b = nt a ||+ b
@@ -37,6 +42,10 @@ a <=% b
 
 (<%) :: (Ord a, HasShape a) => a -> a -> VBool
 a <% b = a <=% b &&+ nt (a ==% b)
+
+norm :: VBool -> VBool
+norm (VBool x) | x == 0    = false
+               | otherwise = VBool x
 
 (&&+) :: VBool -> VBool -> VBool
 (VBool l) &&+ (VBool r)

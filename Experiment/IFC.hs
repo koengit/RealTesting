@@ -5,6 +5,7 @@ import Test.QuickCheck
 
 import VBool
 import Neighbour
+import Shape
 
 data Instr = Push LInt | Pop | Load | Store | Add | Noop | Halt
   deriving (Ord, Eq, Show)
@@ -18,6 +19,14 @@ instance HasNeighbours Program where
                                    [Pop, Load, Store, Add] ]
 
 data Label = L | H deriving (Ord, Eq, Show)
+
+instance HasShape Label where
+  shapeOf _ = Nary 1
+
+  fromRn _ [x] = if x <= 0 then L else H
+
+  measure L = [-1]
+  measure H = [1]
 
 instance Arbitrary Label where
   arbitrary = oneof [return L, return H]
@@ -109,3 +118,10 @@ halts step p = go (machine p)
       Halted -> true
       Failed -> false 
       Ok ms' -> true &&+ go ms'
+
+indist_value :: LInt -> LInt -> VBool
+indist_value (i, l) (j, l') =
+  (l ==% H &&+ l' ==% H) ||+ (i ==% j &&+ l ==% L &&+ l' ==% L)
+
+indist_instr :: Instr -> Instr -> VBool
+indist_instr _ _ = undefined

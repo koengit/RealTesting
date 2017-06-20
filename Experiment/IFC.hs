@@ -1,6 +1,8 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module IFC where
 
 import Data.List
+import Data.Maybe
 import Test.QuickCheck
 
 import VBool
@@ -11,7 +13,6 @@ data Instr = Push LInt | Pop | Load | Store | Add | Noop | Halt
   deriving (Ord, Eq, Show)
 
 instance HasShape Instr where
-
   shapeOf i = case i of
     Push li -> Nested 0 [shapeOf li]
     Pop     -> Nested 0 [Nary 0]
@@ -39,13 +40,26 @@ instance HasShape Instr where
     Noop -> 4
     Halt -> 5]
 
-newtype Program = Program [Instr] deriving (Ord, Eq, Show)
+instance Arbitrary Instr where
+  arbitrary = oneof [ Push <$> arbitrary
+                    , return Pop
+                    , return Load
+                    , return Store
+                    , return Add
+                    , return Noop
+                    , return Halt
+                    ]
+
+newtype Program = Program [Instr] deriving (Ord, Eq, Show, HasShape)
 
 instance HasNeighbours Program where
   neighbours (Program p) = [ Program (p ++ [i]) |
                               i <- (map (\k -> Push (k, L))) [0..5] ++
                                    (map (\k -> Push (k, H))) [0..5] ++
                                    [Pop, Load, Store, Add] ]
+
+instance Arbitrary Program where
+  arbitrary = Program <$> arbitrary
 
 data Label = L | H deriving (Ord, Eq, Show)
 
@@ -59,6 +73,9 @@ instance HasShape Label where
 
 instance Arbitrary Label where
   arbitrary = oneof [return L, return H]
+
+instance HasNeighbours Label where
+  neighbours l = [swap l]
 
 swap :: Label -> Label
 swap L = H
@@ -77,6 +94,13 @@ data MachineState = MachineState {
                     , memory :: [LInt]
                     , program :: [Instr] }
                     deriving (Ord, Eq, Show)
+
+instance Arbitrary MachineState where
+  arbitrary = MachineState <$>
+                 arbitrary <*> 
+                 arbitrary <*>
+                 arbitrary <*>
+                 arbitrary
 
 machine :: Program -> MachineState
 machine (Program instrs) =
@@ -111,10 +135,13 @@ step_naive st
                   Load  -> case stack st of
                               []      -> Failed 
                               ((x, l):xs)  ->
+                                if x >= 0 then
                                   Ok $ st { pc = pc st + 1
                                           , stack =
                                               (extendTo x (memory st)) !! x : xs
                                           }
+                                else
+                                  Failed
                   Store -> case stack st of
                             (x:y:xs) -> Ok $ st { pc     = pc st + 1
                                                 , stack  = xs
@@ -159,3 +186,18 @@ indist_instr i j = i ==% j ||+
 (~=) :: MachineState -> MachineState -> VBool
 m0 ~= m1 = andP (zipWith indist_instr (program m0) (program m1)) &&+
            andP (zipWith indist_value (memory m0) (memory m1))
+
+prop_EENI :: (MachineState -> Possibility)
+          -> (Program, [LInt], [LInt])
+          -> VBool
+prop_EENI step (p0@(Program p), m0, m1) =
+  let mak0 = mkMach m0
+      mak1 = mkMach m1
+  in (mak0 ~= mak1 &&+ halts step p0) %==>
+  (maybe false id ((~=) <$> run step mak0 <*> run step mak1))
+  where
+    mkMach m = MachineState { pc = 0
+                            , stack = []
+                            , memory = m
+                            , program = p ++ [Halt]
+                            }

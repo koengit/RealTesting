@@ -14,11 +14,12 @@ instance HasNeighbours Int where
   neighbours x = [x+1, x-1]
 
 instance HasNeighbours a => HasNeighbours [a] where
-  neighbours xs = 
-    (if not (null xs) then
+  neighbours xs =
+    if not (null xs) then
       [tail xs, init xs, xs ++ tail xs, tail xs ++ xs, xs ++ xs]
+      ++ triangular (zipWith (:) xs $ map neighbours xs)
     else
-      []) ++ triangular (zipWith (:) xs $ map neighbours xs)
+      []
 
 instance
   (HasNeighbours a, HasNeighbours b, HasNeighbours c) =>
@@ -55,7 +56,7 @@ hillClimb n stopping a meas
 
 satisfy :: HasNeighbours a => (a -> VBool) -> a -> IO (Maybe a)
 satisfy prop a = do
-  let best = hillClimb 100000 (toBool . prop) a (unVBool . prop)
+  let best = hillClimb 1000 (toBool . prop) a (unVBool . prop)
   b <- generate best
   if toBool (prop b) then
    return (Just b)

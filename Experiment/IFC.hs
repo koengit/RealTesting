@@ -184,7 +184,9 @@ indist_instr i j = i ==% j ||+
   (case (i, j) of (Push v0, Push v1) -> indist_value v0 v1; _ -> false)
 
 (~=) :: MachineState -> MachineState -> VBool
-m0 ~= m1 = andP (zipWith indist_instr (program m0) (program m1)) &&+
+m0 ~= m1 = length (memory m0) ==% length (memory m1) &&+
+           length (program m0) ==% length (program m1) &&+
+           andP (zipWith indist_instr (program m0) (program m1)) &&+
            andP (zipWith indist_value (memory m0) (memory m1))
 
 prop_EENI :: (MachineState -> Possibility)
@@ -201,3 +203,20 @@ prop_EENI step (p0@(Program p), m0, m1) =
                             , memory = m
                             , program = p ++ [Halt]
                             }
+
+prop_EENI' :: (MachineState -> Possibility)
+           -> [LInt]
+           -> [LInt]
+           -> Property
+prop_EENI' step m0 m1 =
+  forAll (hillClimb 10 (const False) (Program []) (halts step)) $
+    \ (Program p)-> 
+      let mak0 = mkMach m0
+          mak1 = mkMach m1
+          mkMach m = MachineState { pc = 0
+                                  , stack = []
+                                  , memory = m
+                                  , program = p ++ [Halt]
+                                  }
+      in (toBool $ mak0 ~= mak1) ==>
+         (maybe False toBool ((~=) <$> run step mak0 <*> run step mak1))

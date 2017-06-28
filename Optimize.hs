@@ -4,6 +4,32 @@ import Data.List
 
 type Point = [Double]
 
+{-
+Typical use of minimize:
+
+  goal p . giveUp k . take n . minimize (repeat d) xs $ h
+
+Here:
+
+- p :: a -> Bool
+  what result value are we looking for
+  
+- k :: Int
+  how many times can the result get worse before we cut our losses
+
+- n :: Int
+  maximum number of iterations
+
+- d :: Double
+  size of "the box"
+
+- xs :: [Double]
+  starting point
+
+- h :: [Double] -> a
+  function to minimize
+-}
+
 -- helpers
 goal :: (a -> Bool) -> [(Point,a,a)] -> (Point,a)
 goal p ((vs,x,_):qs)

@@ -55,10 +55,11 @@ instance Arbitrary E where
     [ nil | isTrue v ]
 
   shrink (Star p) =
-    [ p ] ++
+    [ p, emp ] ++
     [ Star p' | p' <- shrink p ]
 
-  shrink _ = []
+  shrink (C _) =
+    [ emp, nil ]
 
 instance Data E where
   vals (p :+: q) = vals p ++ vals q
@@ -129,7 +130,7 @@ instance Data Intv where
 
 notEmpty, ok :: Intv -> VBool
 notEmpty (i :-: j) = i <=% j
-ok       (i :-: j) = (0 <=% i) &&+ (i <=% j) &&+ (j <=% 7)
+ok       (i :-: j) = (0 <=% i) &&+ (i <=% j) &&+ (j <=% 3)
 
 int :: Intv -> E -> E
 int (i:-:j) p | i < 0 || j < i = nil
@@ -138,7 +139,7 @@ int (0:-:j) p = EpsNil true :+: (p :>: int (0:-:(j-1)) p)
 int (i:-:j) p = p :>: int ((i-1):-:(j-1)) p
 
 prop_IntervalIntersection args =
-  forData args $ \(((e,e'),as),(i,i')) ->
+  forData0 args $ \(((e,e'),List as _ _),(i,i')) ->
         ( (eps e ==% eps e')
       &&+ ok i
       &&+ ok i'
@@ -148,20 +149,37 @@ prop_IntervalIntersection args =
           recs (int (i/\i') (e :&: e')) as)
 
 --------------------------------------------------------------------------------
--- property 2: sequentail composition intersection
+-- property 2: sequential composition intersection
 
-prop_e3 args =
-  forData0 args $ \(((a,b),(c,d)),as) ->
+prop_SeqIntersection args =
+  forData0 args $ \(((a,b),(c,d)),List as _ _) ->
     (recs ((a :&: b) :>: (c :&: d)) as ==%
        recs ((a :>: c) :&: (b :>: d)) as)
+
+prop_SeqIntersection' args =
+  forData args $ \((a,b),List as _ _) ->
+    (recs ((a :&: b) :>: (a :&: b)) as ==%
+       recs ((a :>: a) :&: (b :>: b)) as)
+
+--------------------------------------------------------------------------------
+-- property 2: sequential composition intersection
+
+prop_NoPalindromes args =
+  forData args $ \(List as _ _) ->
+    (length as >=% 5 &&+ foldr (&&+) true [ nt (a ==% b) | (a,b) <- pairs (take (length as `div` 2) as) ]) ==>%
+      nt (as ==% reverse (as :: [Int]))
+
+pairs (x:xs) = [ (x,y) | y <- xs ] ++ pairs xs
+pairs _      = []
 
 --------------------------------------------------------------------------------
 -- main
 
 main =
   quickCheckWith stdArgs{ maxSuccess = 10000 }
-    prop_IntervalIntersection
-    --prop_SeqIntersection
+    --prop_IntervalIntersection
+    prop_SeqIntersection'
+    --prop_NoPalindromes
 
 --------------------------------------------------------------------------------
 

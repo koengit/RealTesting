@@ -1,6 +1,6 @@
 module Falsify ( module VBool
                , module Shape
-               , patternSearch
+               , module Optimize
                , falsifyWithTrace
                , satisfyWithTrace
                , falsify
@@ -8,43 +8,10 @@ module Falsify ( module VBool
                , satisfyPrecondition ) where
 import VBool
 import Shape
+import Optimize
 
-import Data.List
-import Data.Ord
-import Control.Parallel
 import Test.QuickCheck
 import Data.Maybe
-
-setAt :: [Double] -> Int -> Double -> [Double]
-setAt xs i d = take i xs ++ [d] ++ (drop (i + 1) xs)
-
-patternMinimizeInner :: [[Double]]           -- ^ Acc
-                     -> Int                  -- ^ Number of steps
-                     -> [Double]             -- ^ Initial point
-                     -> Double               -- ^ Initial delta
-                     -> Double               -- ^ Epsilon
-                     -> ([Double] -> Double) -- ^ Function to minimize
-                     -> ([Double], [[Double]])
-patternMinimizeInner acc 0 p _ _ _  = (p, reverse $ p:acc)
-patternMinimizeInner acc n p d eps f
-  | d < eps   = (p, reverse $ p:acc)
-  | otherwise =
-    let lows   = [ setAt p i (p !! i + d) | i <- [0 .. length p - 1] ]
-        highs  = [ setAt p i (p !! i - d) | i <- [0 .. length p - 1] ]
-        points = highs `par` lows `pseq` lows ++ highs
-        minP   = minimumBy (comparing f) points
-    in if f p <= f minP then
-         patternMinimizeInner (p:acc) (n - 1) p (d / 2) eps f
-       else
-         patternMinimizeInner (p:acc) (n - 1) minP d eps f
-
-patternSearch :: Int                  -- ^ Number of steps
-              -> [Double]             -- ^ Initial point
-              -> Double               -- ^ Initial delta
-              -> Double               -- ^ Epsilon
-              -> ([Double] -> Double) -- ^ Function to minimize
-              -> ([Double], [[Double]])
-patternSearch = patternMinimizeInner []
 
 falsifyWithTrace :: HasShape a
         => a            -- ^ Initial guess for a

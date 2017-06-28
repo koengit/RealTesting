@@ -33,7 +33,7 @@ instance Object Int where
 instance (Object a, Object b) => Object (a, b) where
   dim (a,b)    = dim a + dim b
   encode (a,b) = encode a ++ encode b
-  decode xs    = (decode xs, b) where b = decode (drop (dim b) xs)
+  decode xs    = (a, decode (drop (dim a) xs)) where a = decode xs
 
 instance Object a => Object [a] where
   dim as = 1 + 10 * dim (head as)
@@ -73,8 +73,13 @@ forObject h =
 
 prop_Palindrome :: [Int] -> VBool
 prop_Palindrome xs =
-  length xs >=% 5 ==>%
+  ( foldr (&&+) true [ nt (x ==% y) | (x,y) <- pairs (take (length xs `div` 2) xs) ] &&+
+    length xs >=% 10 ) ==>%
     nt (reverse xs ==% xs)
+
+pairs []     = []
+pairs (x:xs) = [ (x,y) | y <- xs ] ++ pairs xs
+
 
 --------------------------------------------------------------------------------
 

@@ -15,13 +15,13 @@ Here:
   what result value are we looking for
   
 - k :: Int
-  how many times can the result get worse before we cut our losses
+  how many times in a row can the result get worse before we cut our losses
 
 - n :: Int
   maximum number of iterations
 
 - d :: Double
-  size of "the box"
+  size of "the box", the initial jumps that will be taken
 
 - xs :: [Double]
   starting point

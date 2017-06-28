@@ -4,11 +4,21 @@ import Data.List
 
 type Point = [Double]
 
--- helper function, most common use (?)
-stopping :: (a -> Bool) -> [a] -> a
-stopping p [x]                = x
-stopping p (x:xs) | p x       = x
-                  | otherwise = stopping p xs
+-- helpers
+goal :: (a -> Bool) -> [(Point,a,a)] -> (Point,a)
+goal p ((vs,x,_):qs)
+  | null qs || p x = (vs,x)
+  | otherwise      = goal p qs
+goal p []          = error "goal []"
+
+giveUp :: Ord a => Int -> [(Point,a,a)] -> [(Point,a,a)]
+giveUp n = go n
+ where
+  go 0 _  = []
+  go k (q@(vs,x,y):qs@((vs',x',y'):_))
+    | x == x' && y' >= y = q : go (k-1) qs
+    | otherwise          = q : go n     qs
+  go _ qs = qs
 
 -- produces an infinite list of (point,best-result,worst-result)
 minimize :: Ord a => Point -> Point -> (Point -> a) -> [(Point,a,a)]

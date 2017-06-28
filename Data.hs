@@ -5,7 +5,7 @@ Varying the data-part of test data by means of expressing them as numerical data
 -}
 
 import Test.QuickCheck
-import Numeric.GSL.Minimization
+import Optimize
 import VBool
 
 --------------------------------------------------------------------------------
@@ -48,17 +48,43 @@ instance Data a => Data [a] where
 
 --------------------------------------------------------------------------------
 
+data List a = List [a] Int [a] deriving ( Eq, Ord )
+
+list :: Int -> [a] -> List a
+list n xs = List (take (n `min` 30) xs) (0 `max` (n `min` 30)) xs
+
+instance Show a => Show (List a) where
+  show (List xs n ys) = show xs {- ++ "(" ++ tail (init (show (drop n ys))) ++ ")" -}
+
+instance Arbitrary a => Arbitrary (List a) where
+  arbitrary =
+    do xs <- sequence [ arbitrary | i <- [1..30] ]
+       n  <- choose (0,30)
+       return (list n xs)
+
+  shrink (List _ n xs) =
+    [ list k xs | k <- [0..n-1] ] ++
+    [ list n (take i xs ++ [x'] ++ drop (i+1) xs)
+    | i <- [0..n-1]
+    , x' <- shrink (xs!!i)
+    ]
+
+instance Data a => Data (List a) where
+  vals (List _ n xs)    = vals n ++ vals xs
+  fill (List _ n xs) vs = list (fill n (take 1 vs)) (fill xs (drop 1 vs))
+
+--------------------------------------------------------------------------------
+
 forData :: (Show a, Data a) => a -> (a -> VBool) -> Property
 forData x h =
-  whenFail (do print x'; putStrLn ("(" ++ show k ++ " iterations)")) $
-    isTrue (h x')
+  whenFail (do print (fill x ws)) $
+    isTrue ans
  where
-  vs   = vals x
-  p ws = howTrue (h (fill x ws))
-  opt  = minimize NMSimplex2 1 100 box p vs
-  box  = [ 15.0 | v <- vs ]
-  x'   = fill x (fst opt)
-  k    = length (lines (show (snd opt))) - 1
+  (ws,ans) = goal   isFalse
+           . giveUp 20
+           . take   100
+           . minimize (repeat 15) (vals x)
+           $ h . fill x
 
 -- dummy implmentation without NM for comparison
 forData0 :: (Show a, Data a) => a -> (a -> VBool) -> Property

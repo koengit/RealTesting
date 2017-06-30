@@ -75,7 +75,7 @@ minimize box p h = go (sort [ pair p | p <- ps0 ])
         go (insert qC xpsI)
       else
         -- shrink
-        go (sort (q0:[ pair (p -*-> (0.1,p0)) | (_,p) <- tail xps ]))
+        go (sort (q0:[ pair (p -*-> (0.15,p0)) | (_,p) <- tail xps ]))
    where
     xpsI       = init xps
     q0@(x0,p0) = head xps
@@ -88,7 +88,7 @@ minimize box p h = go (sort [ pair p | p <- ps0 ])
     -- reflect, expand, contract
     qR@(xR,_) = pair (pL -*-> (2,   pO))
     qE@(xE,_) = pair (pL -*-> (3,   pO))
-    qC@(xC,_) = pair (pL -*-> (0.5, pO))
+    qC@(xC,_) = pair (pL -*-> (0.4, pO)) -- not 0.5 to avoid the same point twice
 
 centroid :: [Point] -> Point
 centroid ps = [ sum [p!!i | p <- ps] / fromIntegral l | i <- [0..l-1] ]

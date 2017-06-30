@@ -81,8 +81,8 @@ forData x h =
     isTrue ans
  where
   (ws,ans) = goal   isFalse
-           . giveUp 20
-           . take   100
+           . giveUp 50
+           . take   1000
            . minimize (repeat 15) (vals x)
            $ h . fill x
 

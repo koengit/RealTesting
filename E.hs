@@ -6,6 +6,7 @@ Applying Data.hs to regular expression testing.
 
 import Test.QuickCheck
 import Control.Monad( liftM, liftM2 )
+import Data.List( transpose )
 import VBool
 import Data
 
@@ -162,24 +163,48 @@ prop_SeqIntersection' args =
        recs ((a :>: a) :&: (b :>: b)) as)
 
 --------------------------------------------------------------------------------
--- property 2: sequential composition intersection
+-- property 3: palindromes
 
 prop_NoPalindromes args =
   forData args $ \(List as _ _) ->
-    (length as >=% 5 &&+ foldr (&&+) true [ nt (a ==% b) | (a,b) <- pairs (take (length as `div` 2) as) ]) ==>%
+    (length as >=% 10 &&+ foldr (&&+) true [ nt (a ==% b) | (a,b) <- pairs (take (length as `div` 2) as) ]) ==>%
       nt (as ==% reverse (as :: [Int]))
 
 pairs (x:xs) = [ (x,y) | y <- xs ] ++ pairs xs
 pairs _      = []
 
 --------------------------------------------------------------------------------
+-- property 4: magic squares
+
+prop_NoMagicSquares args =
+  forData args $ \(a1,(a2,(a3,(a4,(a5,(a6,(a7,(a8,a9)))))))) ->
+    let as = [a1,a2,a3,a4,a5,a6,a7,a8,a9] in
+    ( length as ==% 9
+  &&+ foldr (&&+) true (
+        [ 1 <=% a &&+ a <=% 9 | a <- as::[Int] ]
+     ++ [ nt (a ==% b) | (a,b) <- pairs as ]
+     ++ [ sum g ==% 15 | g <- group 3 as ]
+     ++ [ sum g ==% 15 | g <- transpose (group 3 as) ]
+     ++ [ sum g ==% 15 | g <- [[as??0,as??4,as??8],[as??2,as??4,as??6]] ]
+      )
+    )
+    ==>% false
+ where
+  []     ?? _ = 0
+  (a:_)  ?? 0 = a
+  (_:as) ?? k = as ?? (k-1)
+
+  group k = takeWhile (not . null) . map (take k) . iterate (drop k)
+
+--------------------------------------------------------------------------------
 -- main
 
 main =
-  quickCheckWith stdArgs{ maxSuccess = 10000 }
+  quickCheckWith stdArgs{ maxSuccess = 1000000 }
     --prop_IntervalIntersection
-    prop_SeqIntersection'
+    --prop_SeqIntersection'
     --prop_NoPalindromes
+    prop_NoMagicSquares
 
 --------------------------------------------------------------------------------
 

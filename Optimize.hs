@@ -59,24 +59,23 @@ minimize box p h = go (sort [ pair p | p <- ps0 ])
   -- pairing up result and point
   pair p = (h p, p)
 
-  -- taken from https://en.wikipedia.org/wiki/Nelder-Mead_method
+  -- refactored from https://en.wikipedia.org/wiki/Nelder-Mead_method
   go xps =
     (p0,x0,xL) :
-    -- reflect
-    if x0 <= xR && xR < xN then
-      go (insert qR xpsI)
-    -- expand
-    else if xR < x0 then
-      if xE < xR then
-        go (insert qE xpsI)
-      else
+    if xR < xN then
+      if x0 <= xR || xR <= xE then
+        -- reflect
         go (insert qR xpsI)
-    -- contract
-    else if xC < xL then
-      go (insert qC xpsI)
-    -- shrink
+      else
+        -- expand
+        go (insert qE xpsI)
     else
-      go (sort (q0:[ pair (p -*-> (0.1,p0)) | (_,p) <- tail xps ]))
+      if xC < xL then
+        -- contract
+        go (insert qC xpsI)
+      else
+        -- shrink
+        go (sort (q0:[ pair (p -*-> (0.1,p0)) | (_,p) <- tail xps ]))
    where
     xpsI       = init xps
     q0@(x0,p0) = head xps

@@ -34,16 +34,26 @@ ifLt x y z w =
 
 f :: (?eps :: Double) => Double -> Double
 f x =
-  ifGt x (-30) 10
+  ifGt x (-30) 100
     (ifLt x (-31) 10 (-10))
+
+fe :: Double -> Double -> Double -> Double
+fe e1 e2 x =
+  let ?eps = e1 in ifGt x (-30) 100 (let ?eps = e2 in ifLt x (-31) 10 (-10))
 
 main =
   print $
-    last . giveUp k . take n . minimize ds xs $ h
+    last . take n . minimize ds xs $ h
   where
-    k = 100
-    n = 1000
-    ds = [1000, 1]
-    xs = [10000, 0]
-    h [eps, x] =
-      let ?eps = abs eps in (f x, ?eps)
+    k = 1000
+    n = 10000
+    ds = [100,100,50]
+    xs = [1000,1000,0]
+    h [e1,e2,x] =
+      mul e1' * mul e2' * fe e1' e2' x
+     where
+      e1' = abs e1
+      e2' = abs e2
+    mul e = 1 + log (1+100*e)
+
+

@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Optimize where
 
 import Data.List
@@ -47,48 +48,57 @@ giveUp n = go n
   go _ qs = qs
 
 -- produces a possibly infinite list of (point,best-result,worst-result)
-minimize :: Ord a => Point -> Point -> (Point -> a) -> [(Point,a,a)]
-minimize _  [] h = [([],x,x)] where x = h []
-minimize box p h = go (sort [ pair p | p <- ps0 ])
+minimize :: Ord a => Point -> Point -> (Point -> a) -> [(Step,Point,a,a)]
+minimize box p h = minimize' box p (\_ -> h)
+
+data Step = Init | Reflect | Expand | Contract | Shrink deriving ( Eq, Ord, Show )
+
+minimize' :: Ord a => Point -> Point -> (Int -> Point -> a) -> [(Step,Point,a,a)]
+minimize' _  [] h = [(Init,[],x,x)] where x = h 0 []
+minimize' box p h = go Init 0 (sort [ pair 0 p | p <- ps0 ])
  where
   -- initial points
   ps0 = p : [ take i p ++ [x] ++ drop (i+1) p
             | (x,i) <- zipWith (+) p box `zip` [0..]
+            ] ++
+            [ take i p ++ [x] ++ drop (i+1) p
+            | (x,i) <- zipWith (+) p (map (*0.35) box) `zip` [0..]
             ]
 
   -- pairing up result and point
-  pair p = (h p, p)
+  pair i p = (h i p, p)
 
   -- refactored from https://en.wikipedia.org/wiki/Nelder-Mead_method
-  go xps =
-    (p0,x0,xL) :
+  go step !i xps =
+    (step,p0,x0,xL) :
     if xR < xN then
       if x0 <= xR || xR <= xE then
         -- reflect
-        go (insert qR xpsI)
+        go Reflect i (insert qR xpsI)
       else
         -- expand
-        go (insert qE xpsI)
+        go Expand (i+1) (insert qE xpsI)
     else
       if xC < xL then
         -- contract
-        go (insert qC xpsI)
+        go Contract (i+1) (insert qC xpsI)
       else
         -- shrink
-        go (sort (q0:[ pair (p -*-> (0.15,p0)) | (_,p) <- tail xps ]))
+        go Shrink (i+1) (sort (q0:[ pair i (p -*-> (0.15,p0)) | (_,p) <- tail xps ]))
    where
+    --xps        = [ pair i p | (_,p) <- xps' ]
     xpsI       = init xps
-    q0@(x0,p0) = head xps
-    qN@(xN,_)  = last xpsI
-    qL@(xL,pL) = last xps
+    q0@(x0,p0) = head xps  -- best point
+    qN@(xN,_)  = last xpsI -- second-to-worst point
+    qL@(xL,pL) = last xps  -- worst point
 
     -- centroid
     pO = centroid (map snd xpsI)
 
     -- reflect, expand, contract
-    qR@(xR,_) = pair (pL -*-> (2,   pO))
-    qE@(xE,_) = pair (pL -*-> (3,   pO))
-    qC@(xC,_) = pair (pL -*-> (0.4, pO)) -- not 0.5 to avoid the same point twice
+    qR@(xR,_) = pair i (pL -*-> (2,   pO))
+    qE@(xE,_) = pair i (pL -*-> (3,   pO))
+    qC@(xC,_) = pair i (pL -*-> (0.4, pO)) -- not 0.5 to avoid the same point twice
 
 centroid :: [Point] -> Point
 centroid ps = [ sum [p!!i | p <- ps] / fromIntegral l | i <- [0..l-1] ]

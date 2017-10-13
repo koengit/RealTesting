@@ -42,6 +42,18 @@ fe :: Double -> Double -> Double -> Double
 fe e1 e2 x =
   let ?eps = e1 in ifGt x (-30) 100 (let ?eps = e2 in ifLt x (-31) 10 (-10))
 
+griewank :: [Double] -> Double
+griewank xs =
+  1 + sum (map (^2) xs) / 4000 -
+  product [ cos (x / sqrt i) | (x, i) <- zip xs [1..] ]
+
+minimiseGriewank d =
+  last $ take n $ minimize ds xs griewank
+  where
+    n = 1000
+    ds = replicate d 100
+    xs = replicate d 10
+
 main =
   putStr $ unlines $ map show $
     take n . minimize ds xs $ h

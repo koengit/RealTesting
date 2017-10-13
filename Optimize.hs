@@ -58,12 +58,21 @@ minimize' _  [] h = [(Init,[],x,x)] where x = h 0 []
 minimize' box p h = go Init 0 (sort [ pair 0 p | p <- ps0 ])
  where
   -- initial points
-  ps0 = p : [ take i p ++ [x] ++ drop (i+1) p
-            | (x,i) <- zipWith (+) p box `zip` [0..]
-            ] ++
-            [ take i p ++ [x] ++ drop (i+1) p
-            | (x,i) <- zipWith (+) p (map (*0.35) box) `zip` [0..]
-            ]
+  ps0 =
+    map (zipWith (+) p) $
+    map (zipWith (*) box) $
+    initial (length box)
+
+  initial n =
+    replicate n 0:
+    [ replicate i b ++ [a] ++ replicate (n-i-1) b
+    | i <- [0..n-1] ]
+    where
+      nf :: Double
+      nf = fromIntegral n
+
+      b = (sqrt(nf+1)-1) / (nf * sqrt 2)
+      a = b + 1 / sqrt 2
 
   -- pairing up result and point
   pair i p = (h i p, p)

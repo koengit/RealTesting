@@ -1,4 +1,5 @@
 -- A hack for badness-preserving shrinking in QuickCheck.
+module Badness where
 
 import Test.QuickCheck
 import Test.QuickCheck.Property

@@ -33,7 +33,7 @@ plot file n xys =
            | (name,_) <- xys
            ])
        ]
-     system ("gnuplot < '" ++ (dir </> file ++ "_gnuplot_.in'"))
+     system ("gnuplot < \"" ++ (dir </> file ++ "_gnuplot_.in\""))
      return ()
      
 --------------------------------------------------------------------------------

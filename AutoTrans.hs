@@ -64,20 +64,29 @@ withTestCase prop = property $ \inps -> ioProperty $ do
 vbool :: Badness -> VBool -> Property
 vbool bad x = badness bad (-howTrue x) (isTrue x)
 
+conj :: [VBool] -> VBool
+conj [] = true
+conj xs = foldl1' (&&+) xs
+
 prop_max_speed :: Property
 prop_max_speed =
   withBadness $ \bad ->
   withTestCase $ \_ test ->
     vbool bad $
-    foldl' (&&+) true
-      [ speed output <=% 140 ||+ rpm output <=% 5000 | (_, output) <- test ]
+    conj [ speed output <=% 140 ||+ rpm output <=% 5000 | (_, output) <- test ]
 
 prop_two_one_two :: Property
 prop_two_one_two =
   withBadness $ \bad ->
   withTestCase $ \delta test ->
+    vbool bad $
     let
       size = truncate (2.5 / delta)
-      windows = map (take size) (tails test)
+      pre (2:1:_) = True
+      pre _ = False
+      post (_:_:xs) =
+        case elemIndex 2 (take size xs) of
+          Nothing -> true
+          Just i  -> false #+ fromIntegral (size - i)
     in
-      and [ not ([2,1,2] `isSubsequenceOf` map (gear . snd) window) | window <- windows ]
+      conj (map post (filter pre (tails (map (gear . snd) test))))

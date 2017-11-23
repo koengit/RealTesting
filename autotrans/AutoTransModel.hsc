@@ -6,6 +6,7 @@ module AutoTransModel(Input(..), Output(..), stepSize, runModel) where
 import Foreign.Ptr
 import Foreign.Storable
 import Data.Word
+import System.IO.Unsafe
 
 #include "Autotrans_shift.h"
 
@@ -62,9 +63,9 @@ getOutput = do
   gear <- peekOutput (#ptr ExtY_Autotrans_shift_T, gear)
   return Output{time = time, speed = speed, rpm = rpm, gear = gear}
 
-runModel :: [Input] -> IO [Output]
+runModel :: [Input] -> [Output]
 runModel xs =
-  c_initialise *> loop xs <* c_terminate
+  unsafePerformIO $ c_initialise *> loop xs <* c_terminate
   where
     loop [] = return []
     loop (inp:inps) = do

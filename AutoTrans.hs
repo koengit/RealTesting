@@ -50,8 +50,8 @@ withTestCase :: Testable prop => (Double -> [(Input, Output)] -> prop) -> Proper
 withTestCase prop = property $ \inps -> ioProperty $ do
   delta <- stepSize
   let inputs = sampleInputs delta inps
-  outputs <- runModel inputs
-  let graph xs = (map (* delta) [0..], xs)
+      outputs = runModel inputs
+      graph xs = (map (* delta) [0..], xs)
   return $
     whenFail (plot "failed" (ceiling (fromIntegral (length inputs) / delta))
       [("throttle", graph (map throttle inputs)),

@@ -14,7 +14,7 @@ data Input =
   Input {
     throttle :: (#type real_T),
     brake    :: (#type real_T) }
-  deriving Show
+  deriving (Eq, Show)
 
 data Output =
   Output {

@@ -20,31 +20,59 @@ instance Arbitrary Input where
       ok input = ok1 (throttle input) && ok1 (brake input)
       ok1 x = 0 <= x && x <= 100
 
-newtype Inputs = Inputs [(Double, Input)] deriving Show
+data Line = Line { start :: Input, end :: Input } deriving (Show, Generic)
+
+instance Arbitrary Line where
+  arbitrary =
+    oneof [
+      Line <$> arbitrary <*> arbitrary,
+      (\x -> Line x x) <$> arbitrary]
+  shrink = genericShrink
+
+bin :: (Double -> Double -> Double) -> Input -> Input -> Input
+bin op x y =
+  Input {
+    throttle = throttle x `op` throttle y,
+    brake = brake x `op` brake y }       
+
+diff :: Line -> Input
+diff line = bin (-) (end line) (start line)
+
+newtype Inputs = Inputs [(Double, Line)] deriving Show
 
 instance Arbitrary Inputs where
   arbitrary =
     Inputs <$>
       listOf1 (do
         duration <- choose (0, 20)
-        input <- arbitrary
-        return (duration, input))
-  shrink (Inputs inps) = Inputs <$> shrinkList (const []) inps ++ shr inps ++ genericShrink inps
+        line <- arbitrary
+        return (duration, line))
+  shrink (Inputs inps) =
+    Inputs <$>
+      merge inps ++
+      genericShrink inps
     where
-      shr (x:y:xs) =
+      merge (x:y:xs) =
         merging x y xs ++
-        map (x:) (shr (y:xs))
-      shr _ = []
+        map (x:) (merge (y:xs))
+      merge _ = []
       merging (t,x) (u,y) xs =
         [(t+u, x):xs,
-         (t+u, y):xs]
+         (t+u, y):xs,
+         (t+u, Line (start x) (end y)):xs]
 
 sampleInputs :: Double -> Inputs -> [Input]
 sampleInputs delta (Inputs xs) =
-  concat (zipWith replicate times inputs)
+  concat (zipWith interpolate times lines)
   where
     times = map truncate (map (/ delta) lengths)
-    (lengths, inputs) = unzip xs
+    (lengths, lines) = unzip xs
+    interpolate n line =
+      map (interp1 n line) [0..n-1]
+    interp1 n line i =
+      bin (\a b -> a + x * b) (start line) (diff line)
+      where
+        x = fromIntegral i / fromIntegral n
 
 withTestCase :: Testable prop => (Double -> [(Input, Output)] -> prop) -> Property
 withTestCase prop = property $ \inps -> ioProperty $ do
@@ -73,7 +101,7 @@ prop_max_speed =
   withBadness $ \bad ->
   withTestCase $ \_ test ->
     vbool bad $
-    conj [ speed output <=% 140 ||+ rpm output <=% 5000 | (_, output) <- test ]
+    conj [ speed output <=% 120 ||+ rpm output <=% 4500 | (_, output) <- test ] # (1000000000 / (fromIntegral (length test)))
 
 prop_two_one_two :: Property
 prop_two_one_two =
@@ -89,4 +117,4 @@ prop_two_one_two =
           Nothing -> true
           Just i  -> false #+ fromIntegral (size - i)
     in
-      conj (map post (filter pre (tails (map (gear . snd) test))))
+      conj (map post (filter pre (tails (map (gear . snd) test)))) # (1000000000 / (fromIntegral (length test)))

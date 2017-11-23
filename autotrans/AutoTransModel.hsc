@@ -1,7 +1,7 @@
 -- The interface to the automatic transmission model.
 
 {-# LANGUAGE ForeignFunctionInterface #-}
-module AutoTransModel(Input(..), Output(..), runModel) where
+module AutoTransModel(Input(..), Output(..), stepSize, runModel) where
 
 import Foreign.Ptr
 import Foreign.Storable
@@ -11,14 +11,13 @@ import Data.Word
 
 data Input =
   Input {
-    duration :: (#type real_T),
     throttle :: (#type real_T),
     brake    :: (#type real_T) }
   deriving Show
 
 data Output =
   Output {
-    time     :: (#type time_T),
+    time     :: Integer,
     speed    :: (#type real_T),
     rpm      :: (#type real_T),
     gear     :: (#type real_T) }
@@ -28,12 +27,12 @@ data CModel
 data CInput
 data COutput
 
-foreign import ccall "Autotrans_shift_initialize" c_initialise :: IO ()
-foreign import ccall "Autotrans_shift_terminate" c_terminate :: IO ()
-foreign import ccall "Autotrans_shift_step" c_step :: IO ()
-foreign import ccall "&Autotrans_shift_M" c_model :: Ptr (Ptr CModel)
-foreign import ccall "&Autotrans_shift_U" c_input :: Ptr CInput
-foreign import ccall "&Autotrans_shift_Y" c_output :: Ptr COutput
+foreign import ccall unsafe "Autotrans_shift_initialize" c_initialise :: IO ()
+foreign import ccall unsafe "Autotrans_shift_terminate" c_terminate :: IO ()
+foreign import ccall unsafe "Autotrans_shift_step" c_step :: IO ()
+foreign import ccall unsafe "&Autotrans_shift_M" c_model :: Ptr (Ptr CModel)
+foreign import ccall unsafe "&Autotrans_shift_U" c_input :: Ptr CInput
+foreign import ccall unsafe "&Autotrans_shift_Y" c_output :: Ptr COutput
 
 peekModel :: Storable a => (Ptr CModel -> Ptr a) -> IO a
 peekModel f = peek c_model >>= peek . f
@@ -50,12 +49,6 @@ clockTick0 = peekModel (#ptr RT_MODEL_Autotrans_shift_T, Timing.clockTick0)
 stepSize0 :: IO (#type time_T)
 stepSize0 = peekModel (#ptr RT_MODEL_Autotrans_shift_T, Timing.stepSize0)
 
-getTime :: IO Double
-getTime = do
-  ticks <- clockTick0
-  size <- stepSize0
-  return (fromIntegral ticks * size)
-
 putInput :: Input -> IO ()
 putInput input = do
   pokeInput (#ptr ExtU_Autotrans_shift_T, throttle) (throttle input)
@@ -63,7 +56,7 @@ putInput input = do
 
 getOutput :: IO Output
 getOutput = do
-  time <- getTime
+  time <- fromIntegral <$> clockTick0
   speed <- peekOutput (#ptr ExtY_Autotrans_shift_T, speed)
   rpm <- peekOutput (#ptr ExtY_Autotrans_shift_T, RPM)
   gear <- peekOutput (#ptr ExtY_Autotrans_shift_T, gear)
@@ -71,15 +64,15 @@ getOutput = do
 
 runModel :: [Input] -> IO [Output]
 runModel xs =
-  c_initialise *> loop 0 (timings xs) <* c_terminate
+  c_initialise *> loop xs <* c_terminate
   where
-    loop _ [] = return []
-    loop x ((_, y):inps)
-      | x >= y = loop x inps
-    loop x inps@((inp, _):_) = do
+    loop [] = return []
+    loop (inp:inps) = do
       putInput inp
       c_step
       output <- getOutput
-      fmap (output:) $ loop (time output) inps
-    timings xs =
-      zip xs (scanl1 (+) (map duration xs))
+      fmap (output:) $ loop inps
+
+stepSize :: IO Double
+stepSize =
+  c_initialise *> stepSize0 <* c_terminate

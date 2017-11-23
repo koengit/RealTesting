@@ -26,13 +26,10 @@ plot file n xys =
      writeFile (dir </> file ++ "_gnuplot_.in") $ unlines $
        [ "set terminal pdf enhanced font 'Times,18' lw 3"
        , "set grid"
-       , "set output '" ++ file ++ "_plot_.pdf'"
-       , "plot " ++
-           concat (intersperse ", "
-           [ "'" ++ file ++ "_" ++ name ++ "_.xy' with lines title '" ++ name ++ "'"
-           | (name,_) <- xys
-           ])
-       ]
+       , "set yrange [0:]"
+       , "set output '" ++ file ++ "_plot_.pdf'" ] ++
+       [ "plot '" ++ file ++ "_" ++ name ++ "_.xy' with lines title '" ++ name ++ "'"
+       | (name,_) <- xys ]
      system ("gnuplot < \"" ++ (dir </> file ++ "_gnuplot_.in\""))
      return ()
      

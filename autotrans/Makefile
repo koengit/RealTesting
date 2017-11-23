@@ -7,7 +7,7 @@ clean:
 	rm -f *.o AutoTransModel.hs
 
 OBJS = \
-	Autotrans_shift_data.o Autotrans_shift.o ert_main.o rtGetInf.o \
+	Autotrans_shift_data.o Autotrans_shift.o rtGetInf.o \
 	rtGetNaN.o rt_look1d.o rt_look2d_normal.o rt_look.o rt_nonfinite.o
 
 autotrans.o: $(OBJS)

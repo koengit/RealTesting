@@ -56,7 +56,7 @@ controller (k_p,k_i,k_d) goalTemp roomTemp =
  where
   err   = goalTemp - roomTemp
   pump' = val k_p * err
-        + val k_i * integral ((0 |> pre pump') >? 1 ? (0, err))
+        + val k_i * integral err -- ((0 |> pre pump') >? 1 ? (0, err))
         + val k_d * deriv err
 
 controlleR :: Control -> S Temp -> S Temp -> S Level

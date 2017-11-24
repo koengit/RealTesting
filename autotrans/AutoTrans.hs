@@ -113,7 +113,7 @@ prop_max_speed =
   withBadness $ \bad ->
   withTestCase $ \_ test ->
     vbool bad $
-    conj [ speed output <=% 160 ||+ rpm output <=% 5000 | (_, output) <- test ] # (big / sqrt (fromIntegral (length test)))
+    conj [ speed output <=% 140 ||+ rpm output <=% 4500 | (_, output) <- test ] # (big / sqrt (fromIntegral (length test)))
 
 prop_two_one_two :: Property
 prop_two_one_two =

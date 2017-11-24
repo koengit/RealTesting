@@ -3,7 +3,7 @@
 all: AutoTransModel.hs autotrans.o
 
 clean:
-	rm -f *.o AutoTransModel.hs
+	rm -f *.o *.hi AutoTransModel.hs
 
 ghci: all
 	ghci AutoTrans -i.. autotrans.o -O -fobject-code

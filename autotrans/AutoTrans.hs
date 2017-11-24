@@ -45,7 +45,7 @@ instance Arbitrary Inputs where
     duration <- sized $ \n -> choose (0, fromIntegral (10*n))
     cut duration <$> Inputs <$>
       infiniteListOf (do
-        duration <- choose (0, 20)
+        duration <- choose (0, 100 `min` (duration / 2))
         line <- arbitrary
         return (duration, line))
   shrink (Inputs inps) =
@@ -99,27 +99,14 @@ withTestCase prop = property $ \inps -> ioProperty $ do
        ("gear", graph (map gear outputs))]) $
       prop delta (zip inputs outputs)
 
-vbool :: Badness -> VBool -> Property
-vbool bad x = badness bad (-howTrue x) (isTrue x)
-
-conj :: [VBool] -> VBool
-conj xs = foldl' (&&+) true xs
-
-forall :: (a -> VBool) -> [a] -> VBool
-forall p xs = conj (map p xs)
-
 prop_max_speed :: Property
 prop_max_speed =
-  withBadness $ \bad ->
-  withTestCase $ \_ test ->
-    vbool bad $
-    conj [ speed output <=% 140 ||+ rpm output <=% 4500 | (_, output) <- test ] # (big / sqrt (fromIntegral (length test)))
+  withBadness $ withTestCase $ \_ test ->
+    conj [ speed output <=% 160 ||+ rpm output <=% 5000 | (_, output) <- test ] # (1000000000 / (fromIntegral (length test)))
 
 prop_two_one_two :: Property
 prop_two_one_two =
-  withBadness $ \bad ->
-  withTestCase $ \delta test ->
-    vbool bad $
+  withBadness $ withTestCase $ \delta test ->
     let
       size = truncate (2.5 / delta)
       p (2:1:xs) =
@@ -128,4 +115,4 @@ prop_two_one_two =
           Just i  -> false #+ fromIntegral (size - i)
       p _ = true
     in
-      forall (p . map (gear . snd)) (tails test) # (big / sqrt (fromIntegral (length test)))
+      conj (map p (tails (map (gear . snd) test))) # (1000000000 / (fromIntegral (length test)))

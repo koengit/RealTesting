@@ -1,4 +1,5 @@
 -- A hack for badness-preserving shrinking in QuickCheck.
+{-# LANGUAGE RankNTypes, FlexibleContexts #-}
 module Badness where
 
 import Test.QuickCheck
@@ -7,6 +8,7 @@ import Test.QuickCheck.State
 import Test.QuickCheck.Text
 import Test.QuickCheck.Gen.Unsafe
 import Data.IORef
+import Data.Reflection
 
 -- Try quickCheck (withBadness prop_sameDiv1000).
 prop_sameDiv1000 :: Badness -> NonNegative (Large Int) -> NonNegative (Large Int) -> Property
@@ -17,11 +19,11 @@ prop_sameDiv1000 bad (NonNegative (Large x)) (NonNegative (Large y)) =
 newtype Badness = Badness (IORef Double)
 
 -- Get a Badness token. Should be used outside of any quantifiers.
-withBadness :: Testable prop => (Badness -> prop) -> Property
+withBadness :: Testable prop => (Given Badness => prop) -> Property
 withBadness prop =
   ioProperty $ do
     ref <- newIORef (-1/0)
-    return $ showBadness ref $ prop (Badness ref)
+    return $ showBadness ref $ give (Badness ref) prop
   where
     showBadness ref =
       callback $ PostFinalFailure Counterexample $ \st _ -> do

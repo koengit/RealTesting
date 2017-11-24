@@ -1,4 +1,10 @@
+{-# LANGUAGE FlexibleContexts, UndecidableInstances #-}
 module VBool where
+
+import Badness
+import Test.QuickCheck
+import Data.List
+import Data.Reflection
 
 infix  4 ==%
 infixr 3 &&%, &&+
@@ -58,6 +64,12 @@ V x &&+ V y
 x ||% y = nt (nt x &&% nt y)      
 x ||+ y = nt (nt x &&+ nt y)      
 
+conj :: [VBool] -> VBool
+conj = foldl' (&&+) true
+
+disj :: [VBool] -> VBool
+disj = foldl' (||+) false
+
 --------------------------------------------------------------------------------
 
 (==>%) :: VBool -> VBool -> VBool
@@ -116,3 +128,5 @@ instance VEq a => VEq [a] where
 
 --------------------------------------------------------------------------------
 
+instance Given Badness => Testable VBool where
+  property x = badness given (-howTrue x) (isTrue x)

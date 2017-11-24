@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Main where
 
 import Zelus
@@ -6,6 +7,7 @@ import VBool
 import Plot
 import Badness
 
+import Data.Reflection
 import Data.List( nub, sortOn )
 import Test.QuickCheck
 import Test.QuickCheck.Modifiers
@@ -129,16 +131,14 @@ prop_Shrink (Fixed g@(GoalTemp _ _)) =
 
 for' n = foldr1 (&&+) . take n
 
-vbool :: Badness -> VBool -> Property
-vbool bad x = badness bad (-howTrue x) (isTrue x)
-
-prop_ReactFast bad (GoalTemp _ goalTemp) =
+prop_ReactFast :: Given Badness => GoalTemp -> Property
+prop_ReactFast (GoalTemp _ goalTemp) =
   whenFail (plot "failed" 300
             [ ("ok", graph (map howTrue ok))
             , ("goal",graph goalTemp)
             , ("room",graph roomTemp)
             ]) $
-  vbool bad (for' tot ok)
+    for' tot ok
  where
   tot = 1000
 

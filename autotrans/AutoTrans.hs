@@ -45,7 +45,7 @@ instance Arbitrary Inputs where
     duration <- sized $ \n -> choose (0, fromIntegral (10*n))
     cut duration <$> Inputs <$>
       infiniteListOf (do
-        duration <- choose (0, 100 `min` (duration / 2))
+        duration <- choose (0, 20)
         line <- arbitrary
         return (duration, line))
   shrink (Inputs inps) =
@@ -102,7 +102,7 @@ withTestCase prop = property $ \inps -> ioProperty $ do
 prop_max_speed :: Property
 prop_max_speed =
   withBadness $ withTestCase $ \_ test ->
-    conj [ speed output <=% 160 ||+ rpm output <=% 5000 | (_, output) <- test ] # (1000000000 / (fromIntegral (length test)))
+    conj [ speed output <=% 140 ||+ rpm output <=% 4500 | (_, output) <- test ] # (1000000000 / (fromIntegral (length test)))
 
 prop_two_one_two :: Property
 prop_two_one_two =

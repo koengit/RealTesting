@@ -129,4 +129,5 @@ instance VEq a => VEq [a] where
 --------------------------------------------------------------------------------
 
 instance Given Badness => Testable VBool where
+  --property x = property (isTrue x)
   property x = badness given (-howTrue x) (isTrue x)

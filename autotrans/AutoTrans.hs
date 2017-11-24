@@ -27,7 +27,9 @@ instance Arbitrary Line where
     oneof [
       Line <$> arbitrary <*> arbitrary,
       (\x -> Line x x) <$> arbitrary]
-  shrink = genericShrink
+  shrink (Line x y)
+    | x == y = (\x -> Line x x) <$> shrink x
+    | otherwise = Line x x:Line y y:genericShrink (Line x y)
 
 bin :: (Double -> Double -> Double) -> Input -> Input -> Input
 bin op x y =

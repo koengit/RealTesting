@@ -103,15 +103,17 @@ vbool :: Badness -> VBool -> Property
 vbool bad x = badness bad (-howTrue x) (isTrue x)
 
 conj :: [VBool] -> VBool
-conj [] = true
-conj xs = foldl1' (&&+) xs
+conj xs = foldl' (&&+) true xs
+
+forall :: (a -> VBool) -> [a] -> VBool
+forall p xs = conj (map p xs)
 
 prop_max_speed :: Property
 prop_max_speed =
   withBadness $ \bad ->
   withTestCase $ \_ test ->
     vbool bad $
-    conj [ speed output <=% 160 ||+ rpm output <=% 5000 | (_, output) <- test ] # (1000000000 / (fromIntegral (length test)))
+    conj [ speed output <=% 160 ||+ rpm output <=% 5000 | (_, output) <- test ] # (big / sqrt (fromIntegral (length test)))
 
 prop_two_one_two :: Property
 prop_two_one_two =
@@ -120,11 +122,10 @@ prop_two_one_two =
     vbool bad $
     let
       size = truncate (2.5 / delta)
-      pre (2:1:_) = True
-      pre _ = False
-      post (_:_:xs) =
+      p (2:1:xs) =
         case elemIndex 2 (take size xs) of
           Nothing -> true
           Just i  -> false #+ fromIntegral (size - i)
+      p _ = true
     in
-      conj (map post (filter pre (tails (map (gear . snd) test)))) # (1000000000 / (fromIntegral (length test)))
+      forall (p . map (gear . snd)) (tails test) # (big / sqrt (fromIntegral (length test)))

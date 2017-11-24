@@ -41,9 +41,10 @@ diff line = bin (-) (end line) (start line)
 newtype Inputs = Inputs [(Double, Line)] deriving Show
 
 instance Arbitrary Inputs where
-  arbitrary =
-    Inputs <$>
-      listOf1 (do
+  arbitrary = do
+    duration <- sized $ \n -> choose (0, fromIntegral (10*n))
+    cut duration <$> Inputs <$>
+      infiniteListOf (do
         duration <- choose (0, 20)
         line <- arbitrary
         return (duration, line))
@@ -60,6 +61,15 @@ instance Arbitrary Inputs where
         [(t+u, x):xs,
          (t+u, y):xs,
          (t+u, Line (start x) (end y)):xs]
+
+cut :: Double -> Inputs -> Inputs
+cut x (Inputs inps) = Inputs (aux x inps)
+  where
+    aux x _ | x <= 0 = []
+    aux _ [] = []
+    aux x ((y, line):inps)
+      | x <= y = [(x, line)]
+      | otherwise = (y, line):aux (x-y) inps
 
 sampleInputs :: Double -> Inputs -> [Input]
 sampleInputs delta (Inputs xs) =
@@ -101,7 +111,7 @@ prop_max_speed =
   withBadness $ \bad ->
   withTestCase $ \_ test ->
     vbool bad $
-    conj [ speed output <=% 120 ||+ rpm output <=% 4500 | (_, output) <- test ] # (1000000000 / (fromIntegral (length test)))
+    conj [ speed output <=% 160 ||+ rpm output <=% 5000 | (_, output) <- test ] # (1000000000 / (fromIntegral (length test)))
 
 prop_two_one_two :: Property
 prop_two_one_two =

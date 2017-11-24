@@ -1,10 +1,12 @@
-.PHONY: all clean
-.DEFAULT: all
+.PHONY: all clean ghci
 
 all: AutoTransModel.hs autotrans.o
 
 clean:
 	rm -f *.o AutoTransModel.hs
+
+ghci: all
+	ghci AutoTrans -i.. autotrans.o -O -fobject-code
 
 OBJS = \
 	Autotrans_shift_data.o Autotrans_shift.o rtGetInf.o \

@@ -104,7 +104,7 @@ withTestCase prop = property $ \inps -> ioProperty $ do
 prop_max_speed :: Property
 prop_max_speed =
   withBadness $ withTestCase $ \_ test ->
-    conj [ speed output <=% 140 ||+ rpm output <=% 4500 | (_, output) <- test ] # (1000000000 / (fromIntegral (length test)))
+    conj [ speed output <=% 140 ||+ rpm output <=% 4500 | (_, output) <- test ] # (1 / (fromIntegral (length test)))
 
 prop_two_one_two :: Property
 prop_two_one_two =
@@ -114,7 +114,7 @@ prop_two_one_two =
       p (2:1:xs) =
         case elemIndex 2 (take size xs) of
           Nothing -> true
-          Just i  -> false #+ fromIntegral (size - i)
+          Just i  -> bad (size - i)
       p _ = true
     in
-      conj (map p (tails (map (gear . snd) test))) # (1000000000 / (fromIntegral (length test)))
+      conj (map p (tails (map (gear . snd) test)))

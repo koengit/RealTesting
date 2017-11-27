@@ -13,52 +13,109 @@ infixr 1 ==>%
 
 --------------------------------------------------------------------------------
 
-newtype VBool = V Double -- x not in (-1..1)
- deriving ( Eq, Ord )
+data VBool = VFalse Inf | VTrue Inf -- x non-negative
+ deriving (Eq, Ord)
 
 instance Show VBool where
-  show (V v) = show v
+  show (VFalse v) = "false " ++ show (fromInf v)
+  show (VTrue v) = "true " ++ show (fromInf v)
+
+instance Arbitrary VBool where
+  arbitrary = do
+    x <- arbitrary
+    val <- elements [VFalse, VTrue]
+    return (val x)
+
+--------------------------------------------------------------------------------
+
+-- A nonzero real number which can also be infinite.
+data Inf = Finite Double | Infinite
+  deriving (Eq, Ord)
+
+plusInf :: Inf -> Inf -> Inf
+plusInf (Finite x) (Finite y) = Finite (x+y)
+plusInf _ _ = Infinite
+
+-- parInf x y = 1/(1/x + 1/y)
+parInf :: Inf -> Inf -> Inf
+parInf (Finite x) (Finite y)
+  | x /= 0, y /= 0 =
+    Finite (recip (recip x + recip y))
+-- 1/(1/x + 1/y) -> y as x -> 0
+parInf (Finite 0) (Finite _) = Finite 0
+parInf (Finite _) (Finite 0) = Finite 0
+-- 1/infty = 0
+parInf (Finite x) Infinite = Finite x
+parInf Infinite (Finite y) = Finite y
+parInf Infinite Infinite = Infinite
+
+scaleInf :: Real a => Inf -> a -> Inf
+scaleInf (Finite x) a = Finite (x*fromRational (toRational a))
+scaleInf Infinite _ = Infinite
+
+fromInf :: Inf -> Double
+fromInf (Finite x) = x
+fromInf Infinite = 1/0
+
+toInf :: Real a => a -> Inf
+toInf = Finite . fromRational . toRational
+
+instance Arbitrary Inf where
+  arbitrary =
+    oneof [
+      return Infinite,
+      do
+        NonNegative x <- arbitrary
+        return (Finite x) ]
 
 --------------------------------------------------------------------------------
 
 false, true :: VBool
-false = V (-1)
-true  = V 1
+false = VFalse Infinite
+true  = VTrue Infinite
+
+bad, good :: Real a => a -> VBool
+bad x = VFalse (toInf x)
+good x = VTrue (toInf x)
 
 howTrue :: VBool -> Double
-howTrue (V v) = v
+howTrue (VFalse x) = -fromInf x
+howTrue (VTrue x) = 1 + fromInf x
 
 isTrue, isFalse :: VBool -> Bool
-isTrue (V v) = v >= 1
-isFalse      = not . isTrue
+isTrue (VFalse _) = False
+isTrue (VTrue _) = True
+isFalse = not . isTrue
 
-(#) :: VBool -> Double -> VBool
-V v # a | a >= 1 = V (v*a)
+(#) :: Real a => VBool -> a -> VBool
+_ # a | a < 0 = error "negative #"
+VFalse x # a = VFalse (scaleInf x a)
+-- XXX should this use par?
+VTrue x # a = VTrue (scaleInf x a)
 
-(#+) :: VBool -> Double -> VBool
-V v #+ a
-  | a < 0     = error "negative #+"
-  | v >= 1    = V (v+a)
-  | otherwise = V (v-a)
-
-inv :: VBool -> VBool
-inv (V v) = V (signum v + (big / v))
-
-big :: Double
-big = 100000
+(#+) :: Real a => VBool -> a -> VBool
+_ #+ a | a < 0 = error "negative #+"
+VFalse x #+ a = VFalse (plusInf x (toInf a))
+-- XXX should this be par?
+VTrue x #+ a = VTrue (plusInf x (toInf a))
 
 --------------------------------------------------------------------------------
 
 nt :: VBool -> VBool
-nt (V x) = V (-x)
+nt (VFalse x) = VTrue x
+nt (VTrue x) = VFalse x
 
 (&&%) :: VBool -> VBool -> VBool
-V x &&% V y = V (x `min` y)
+VFalse x &&% VFalse y = VFalse (x `max` y)
+VTrue x &&% VTrue y = VTrue (x `min` y)
+VFalse x &&% VTrue _ = VFalse x
+VTrue _ &&% VFalse x = VFalse x
 
 (&&+) :: VBool -> VBool -> VBool
-V x &&+ V y
-  | signum x == signum y = V (x + y - signum x)
-  | otherwise            = V (x `min` y)
+VFalse x &&+ VFalse y = VFalse (plusInf x y)
+VTrue x &&+ VTrue y = VTrue (parInf x y)
+VTrue _x &&+ VFalse y = VFalse y
+VFalse x &&+ VTrue _y = VFalse x
 
 (||%), (||+) :: VBool -> VBool -> VBool
 x ||% y = nt (nt x &&% nt y)      
@@ -72,6 +129,9 @@ disj = foldl' (||+) false
 
 --------------------------------------------------------------------------------
 
+big :: Double
+big = 100000
+
 (==>%) :: VBool -> VBool -> VBool
 x ==>% y
   | isTrue x  = y
@@ -81,14 +141,11 @@ x ==>% y
 
 (>%), (>=%), (<=%), (<%) :: Real a => a -> a -> VBool
 x >=% y
-  | x >= y    = true  #+ toDouble (x-y)
-  | otherwise = false #+ toDouble (y-x)
+  | x >= y    = good (x-y)
+  | otherwise = bad (y-x)
 x >%  y = nt (x <=% y)
 x <%  y = y >% x
 x <=% y = y >=% x
-
-toDouble :: Real a => a -> Double
-toDouble = fromRational . toRational
 
 --------------------------------------------------------------------------------
 
@@ -98,20 +155,20 @@ class VEq a where
 instance VEq Double where
   x ==% y
     | x == y    = true
-    | otherwise = false #+ abs (x-y)
+    | otherwise = bad (abs (x-y))
 
 instance VEq Int where
   x ==% y
     | x == y    = true
-    | otherwise = false #+ fromIntegral (abs (x-y))
+    | otherwise = bad (fromIntegral (abs (x-y)))
 
 instance VEq Bool where
   x ==% y = if x == y then true else false
 
 instance VEq VBool where
   x ==% y
-    | isTrue x == isTrue y = true  #+ (big / (0.1+d))
-    | otherwise            = false #+ d
+    | isTrue x == isTrue y = good (big / (0.1+d))
+    | otherwise            = bad d
    where
     d = abs (howTrue x - howTrue y)
 
@@ -124,10 +181,10 @@ instance (VEq a, VEq b) => VEq (a,b) where
 instance VEq a => VEq [a] where
   []     ==% []     = true
   (a:as) ==% (b:bs) = (a==%b) &&+ (as ==% bs)
-  as     ==% bs     = false #+ fromIntegral (length (as++bs))
+  as     ==% bs     = bad (fromIntegral (length (as++bs)))
 
 --------------------------------------------------------------------------------
 
 instance Given Badness => Testable VBool where
   --property x = property (isTrue x)
-  property x = badness given (-howTrue x) (isTrue x)
+  property x = badness given (- howTrue x) (isTrue x)

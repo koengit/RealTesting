@@ -29,7 +29,9 @@ instance Arbitrary Line where
       (\x -> Line x x) <$> arbitrary]
   shrink (Line x y)
     | x == y = (\x -> Line x x) <$> shrink x
-    | otherwise = Line x x:Line y y:genericShrink (Line x y)
+    | otherwise = Line x x:Line y y:Line (bin avg x y) (bin avg x y):genericShrink (Line x y)
+    where
+      avg x y = (x+y)/2
 
 bin :: (Double -> Double -> Double) -> Input -> Input -> Input
 bin op x y =
@@ -47,7 +49,8 @@ instance Arbitrary Inputs where
     duration <- sized $ \n -> choose (0, fromIntegral (10*n))
     cut duration <$> Inputs <$>
       infiniteListOf (do
-        duration <- choose (0, 20)
+        sqrtduration <- choose (0, sqrt duration)
+        let duration = sqrtduration^2
         line <- arbitrary
         return (duration, line))
   shrink (Inputs inps) =
@@ -118,3 +121,24 @@ prop_two_one_two =
       p _ = true
     in
       conj (map p (tails (map (gear . snd) test)))
+
+prop_engine_speed :: Property
+prop_engine_speed =
+  withBadness $ withTestCase $ \delta test ->
+    and [ rpm output <= 5500 | (_, output) <- test ] ==>
+    conj [ speed output <=% 120 | (_, output) <- take (truncate (30 / delta)) test ]
+
+prop_speed :: Property
+prop_speed =
+  withBadness $ withTestCase $ \delta test ->
+    let
+      t = 20
+      w = 4500
+      v = 100
+
+      prop [] = false
+      prop (x:xs) =
+        speed x >=% v &&+ conj [ rpm x <=% w | x <- xs ]
+    in
+      length test >= truncate ((t*1.5) / delta) ==>
+      disj (map prop (take (truncate (t / delta)) (tails (map snd test))))

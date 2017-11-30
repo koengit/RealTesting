@@ -9,7 +9,7 @@ auto: all
 	ghci AutoTrans -i.. autotrans.o -O -fobject-code
 
 heater: all
-	ghci HeaterModel -i.. heater.o -O -fobject-code
+	ghci HeaterQC -i.. heater.o -O -fobject-code
 
 afc: all
 	ghci AFCModel -i.. afc.o -O -fobject-code

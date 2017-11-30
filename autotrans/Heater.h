@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'Heater'.
  *
- * Model version                  : 1.12
+ * Model version                  : 1.83
  * Simulink Coder version         : 8.11 (R2016b) 25-Aug-2016
- * C/C++ source code generated on : Fri Nov 24 15:25:22 2017
+ * C/C++ source code generated on : Tue Nov 28 10:16:24 2017
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Intel->x86-64 (Windows64)
@@ -57,41 +57,41 @@
 /* Block signals (auto storage) */
 typedef struct {
   real_T FilterCoefficient;            /* '<S3>/Filter Coefficient' */
+  real_T Divide;                       /* '<S1>/Divide' */
+  real_T Divide1;                      /* '<S1>/Divide1' */
   real_T IntegralGain;                 /* '<S3>/Integral Gain' */
-  real_T Divide;                       /* '<S2>/Divide' */
-  real_T Divide1;                      /* '<S2>/Divide1' */
 } B_Heater_T;
 
 /* Continuous states (auto storage) */
 typedef struct {
-  real_T tIntegrator_CSTATE;           /* '<S2>/t Integrator' */
-  real_T hIntegrator_CSTATE;           /* '<S2>/h Integrator' */
+  real_T rIntegrator_CSTATE;           /* '<S1>/r Integrator' */
+  real_T hIntegrator_CSTATE;           /* '<S1>/h Integrator' */
   real_T Integrator_CSTATE;            /* '<S3>/Integrator' */
   real_T Filter_CSTATE;                /* '<S3>/Filter' */
 } X_Heater_T;
 
 /* State derivatives (auto storage) */
 typedef struct {
-  real_T tIntegrator_CSTATE;           /* '<S2>/t Integrator' */
-  real_T hIntegrator_CSTATE;           /* '<S2>/h Integrator' */
+  real_T rIntegrator_CSTATE;           /* '<S1>/r Integrator' */
+  real_T hIntegrator_CSTATE;           /* '<S1>/h Integrator' */
   real_T Integrator_CSTATE;            /* '<S3>/Integrator' */
   real_T Filter_CSTATE;                /* '<S3>/Filter' */
 } XDot_Heater_T;
 
 /* State disabled  */
 typedef struct {
-  boolean_T tIntegrator_CSTATE;        /* '<S2>/t Integrator' */
-  boolean_T hIntegrator_CSTATE;        /* '<S2>/h Integrator' */
+  boolean_T rIntegrator_CSTATE;        /* '<S1>/r Integrator' */
+  boolean_T hIntegrator_CSTATE;        /* '<S1>/h Integrator' */
   boolean_T Integrator_CSTATE;         /* '<S3>/Integrator' */
   boolean_T Filter_CSTATE;             /* '<S3>/Filter' */
 } XDis_Heater_T;
 
 /* Invariant block signals (auto storage) */
 typedef struct {
-  const real_T Sum2;                   /* '<S2>/Sum2' */
-  const real_T OCOT;                   /* '<S2>/OC*OT' */
-  const real_T Sum4;                   /* '<S2>/Sum4' */
-  const real_T Sum5;                   /* '<S2>/Sum5' */
+  const real_T Sum2;                   /* '<S1>/Sum2' */
+  const real_T OCOT;                   /* '<S1>/OC*OT' */
+  const real_T Sum4;                   /* '<S1>/Sum4' */
+  const real_T Sum5;                   /* '<S1>/Sum5' */
 } ConstB_Heater_T;
 
 #ifndef ODE3_INTG
@@ -107,12 +107,12 @@ typedef struct {
 
 /* External inputs (root inport signals with auto storage) */
 typedef struct {
-  real_T Reference;                    /* '<Root>/Reference' */
+  real_T goaltemperature;              /* '<Root>/g' */
 } ExtU_Heater_T;
 
 /* External outputs (root outports fed by signals with auto storage) */
 typedef struct {
-  real_T t;                            /* '<Root>/t' */
+  real_T r;                            /* '<Root>/r' */
   real_T h;                            /* '<Root>/h' */
   real_T l;                            /* '<Root>/l' */
 } ExtY_Heater_T;
@@ -186,6 +186,8 @@ extern RT_MODEL_Heater_T *const Heater_M;
  * These blocks were eliminated from the model due to optimizations:
  *
  * Block '<Root>/Scope' : Unused code path elimination
+ * Block '<Root>/Manual Switch' : Eliminated due to constant selection input
+ * Block '<Root>/Constant' : Unused code path elimination
  */
 
 /*-
@@ -203,8 +205,8 @@ extern RT_MODEL_Heater_T *const Heater_M;
  * Here is the system hierarchy for this model
  *
  * '<Root>' : 'Heater'
- * '<S1>'   : 'Heater/Controller'
- * '<S2>'   : 'Heater/Plant'
+ * '<S1>'   : 'Heater/Continuous Plant'
+ * '<S2>'   : 'Heater/Controller'
  * '<S3>'   : 'Heater/Controller/Broken controller'
  */
 #endif                                 /* RTW_HEADER_Heater_h_ */

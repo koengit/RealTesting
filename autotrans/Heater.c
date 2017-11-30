@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'Heater'.
  *
- * Model version                  : 1.12
+ * Model version                  : 1.83
  * Simulink Coder version         : 8.11 (R2016b) 25-Aug-2016
- * C/C++ source code generated on : Fri Nov 24 15:25:22 2017
+ * C/C++ source code generated on : Tue Nov 28 10:16:24 2017
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Intel->x86-64 (Windows64)
@@ -121,7 +121,7 @@ static void rt_ertODEUpdateContinuousStates(RTWSolverInfo *si )
 void Heater_step(void)
 {
   real_T rtb_Sum_a;
-  real_T rtb_Sum_l;
+  real_T rtb_Saturate;
   if (rtmIsMajorTimeStep(Heater_M)) {
     /* set solver stop time */
     rtsiSetSolverStopTime(&Heater_M->solverInfo,((Heater_M->Timing.clockTick0+1)*
@@ -133,21 +133,21 @@ void Heater_step(void)
     Heater_M->Timing.t[0] = rtsiGetT(&Heater_M->solverInfo);
   }
 
-  /* Outport: '<Root>/t' incorporates:
-   *  Integrator: '<S2>/t Integrator'
+  /* Outport: '<Root>/r' incorporates:
+   *  Integrator: '<S1>/r Integrator'
    */
-  Heater_Y.t = Heater_X.tIntegrator_CSTATE;
+  Heater_Y.r = Heater_X.rIntegrator_CSTATE;
 
   /* Outport: '<Root>/h' incorporates:
-   *  Integrator: '<S2>/h Integrator'
+   *  Integrator: '<S1>/h Integrator'
    */
   Heater_Y.h = Heater_X.hIntegrator_CSTATE;
 
-  /* Sum: '<S1>/Sum' incorporates:
-   *  Inport: '<Root>/Reference'
-   *  Integrator: '<S2>/t Integrator'
+  /* Sum: '<S2>/Sum' incorporates:
+   *  Inport: '<Root>/g'
+   *  Integrator: '<S1>/r Integrator'
    */
-  rtb_Sum_a = Heater_U.Reference - Heater_X.tIntegrator_CSTATE;
+  rtb_Sum_a = Heater_U.goaltemperature - Heater_X.rIntegrator_CSTATE;
 
   /* Gain: '<S3>/Filter Coefficient' incorporates:
    *  Gain: '<S3>/Derivative Gain'
@@ -161,41 +161,52 @@ void Heater_step(void)
    *  Gain: '<S3>/Proportional Gain'
    *  Integrator: '<S3>/Integrator'
    */
-  rtb_Sum_l = (0.012 * rtb_Sum_a + Heater_X.Integrator_CSTATE) +
+  rtb_Saturate = (0.005 * rtb_Sum_a + Heater_X.Integrator_CSTATE) +
     Heater_B.FilterCoefficient;
 
+  /* Saturate: '<S3>/Saturate' */
+  if (rtb_Saturate > 1.0) {
+    rtb_Saturate = 1.0;
+  } else {
+    if (rtb_Saturate < 0.0) {
+      rtb_Saturate = 0.0;
+    }
+  }
+
+  /* End of Saturate: '<S3>/Saturate' */
+
   /* Outport: '<Root>/l' */
-  Heater_Y.l = rtb_Sum_l;
+  Heater_Y.l = rtb_Saturate;
+
+  /* Product: '<S1>/Divide' incorporates:
+   *  Constant: '<S1>/heaterCoeff'
+   *  Integrator: '<S1>/h Integrator'
+   *  Integrator: '<S1>/r Integrator'
+   *  Product: '<S1>/(HC + OT)*r'
+   *  Product: '<S1>/HC*h'
+   *  Sum: '<S1>/Sum3'
+   */
+  Heater_B.Divide = ((0.1 * Heater_X.hIntegrator_CSTATE + Heater_ConstB.OCOT) -
+                     Heater_ConstB.Sum2 * Heater_X.rIntegrator_CSTATE) /
+    Heater_ConstB.Sum4;
+
+  /* Product: '<S1>/Divide1' incorporates:
+   *  Constant: '<S1>/boilerTemp'
+   *  Constant: '<S1>/heaterCoeff'
+   *  Integrator: '<S1>/h Integrator'
+   *  Integrator: '<S1>/r Integrator'
+   *  Product: '<S1>/(HC + l)*h'
+   *  Product: '<S1>/BT*l'
+   *  Product: '<S1>/HC*r'
+   *  Sum: '<S1>/Sum'
+   *  Sum: '<S1>/Sum1'
+   */
+  Heater_B.Divide1 = ((Heater_X.rIntegrator_CSTATE * 0.1 - (0.1 + rtb_Saturate) *
+                       Heater_X.hIntegrator_CSTATE) + rtb_Saturate * 90.0) /
+    Heater_ConstB.Sum5;
 
   /* Gain: '<S3>/Integral Gain' */
   Heater_B.IntegralGain = 0.000114468896 * rtb_Sum_a;
-
-  /* Product: '<S2>/Divide' incorporates:
-   *  Constant: '<S2>/heaterCoeff'
-   *  Integrator: '<S2>/h Integrator'
-   *  Integrator: '<S2>/t Integrator'
-   *  Product: '<S2>/(HC + OT)*t'
-   *  Product: '<S2>/HC*h'
-   *  Sum: '<S2>/Sum3'
-   */
-  Heater_B.Divide = ((0.1 * Heater_X.hIntegrator_CSTATE + Heater_ConstB.OCOT) -
-                     Heater_ConstB.Sum2 * Heater_X.tIntegrator_CSTATE) /
-    Heater_ConstB.Sum4;
-
-  /* Product: '<S2>/Divide1' incorporates:
-   *  Constant: '<S2>/boilerTemp'
-   *  Constant: '<S2>/heaterCoeff'
-   *  Integrator: '<S2>/h Integrator'
-   *  Integrator: '<S2>/t Integrator'
-   *  Product: '<S2>/(HC + l)*h'
-   *  Product: '<S2>/BT*l'
-   *  Product: '<S2>/HC*t'
-   *  Sum: '<S2>/Sum'
-   *  Sum: '<S2>/Sum1'
-   */
-  Heater_B.Divide1 = ((Heater_X.tIntegrator_CSTATE * 0.1 - (0.1 + rtb_Sum_l) *
-                       Heater_X.hIntegrator_CSTATE) + rtb_Sum_l * 90.0) /
-    Heater_ConstB.Sum5;
   if (rtmIsMajorTimeStep(Heater_M)) {
     rt_ertODEUpdateContinuousStates(&Heater_M->solverInfo);
 
@@ -209,9 +220,9 @@ void Heater_step(void)
     Heater_M->Timing.t[0] = rtsiGetSolverStopTime(&Heater_M->solverInfo);
 
     {
-      /* Update absolute timer for sample time: [0.2s, 0.0s] */
+      /* Update absolute timer for sample time: [0.001s, 0.0s] */
       /* The "clockTick1" counts the number of times the code of this task has
-       * been executed. The resolution of this integer timer is 0.2, which is the step size
+       * been executed. The resolution of this integer timer is 0.001, which is the step size
        * of the task. Size of "clockTick1" ensures timer will not overflow during the
        * application lifespan selected.
        */
@@ -226,10 +237,10 @@ void Heater_derivatives(void)
   XDot_Heater_T *_rtXdot;
   _rtXdot = ((XDot_Heater_T *) Heater_M->derivs);
 
-  /* Derivatives for Integrator: '<S2>/t Integrator' */
-  _rtXdot->tIntegrator_CSTATE = Heater_B.Divide;
+  /* Derivatives for Integrator: '<S1>/r Integrator' */
+  _rtXdot->rIntegrator_CSTATE = Heater_B.Divide;
 
-  /* Derivatives for Integrator: '<S2>/h Integrator' */
+  /* Derivatives for Integrator: '<S1>/h Integrator' */
   _rtXdot->hIntegrator_CSTATE = Heater_B.Divide1;
 
   /* Derivatives for Integrator: '<S3>/Integrator' */
@@ -277,7 +288,7 @@ void Heater_initialize(void)
   rtsiSetSolverData(&Heater_M->solverInfo, (void *)&Heater_M->intgData);
   rtsiSetSolverName(&Heater_M->solverInfo,"ode3");
   rtmSetTPtr(Heater_M, &Heater_M->Timing.tArray[0]);
-  Heater_M->Timing.stepSize0 = 0.2;
+  Heater_M->Timing.stepSize0 = 0.001;
 
   /* block I/O */
   (void) memset(((void *) &Heater_B), 0,
@@ -290,17 +301,17 @@ void Heater_initialize(void)
   }
 
   /* external inputs */
-  Heater_U.Reference = 0.0;
+  Heater_U.goaltemperature = 0.0;
 
   /* external outputs */
   (void) memset((void *)&Heater_Y, 0,
                 sizeof(ExtY_Heater_T));
 
-  /* InitializeConditions for Integrator: '<S2>/t Integrator' */
-  Heater_X.tIntegrator_CSTATE = -5.0;
+  /* InitializeConditions for Integrator: '<S1>/r Integrator' */
+  Heater_X.rIntegrator_CSTATE = -5.0;
 
-  /* InitializeConditions for Integrator: '<S2>/h Integrator' */
-  Heater_X.hIntegrator_CSTATE = -5.0;
+  /* InitializeConditions for Integrator: '<S1>/h Integrator' */
+  Heater_X.hIntegrator_CSTATE = 20.0;
 
   /* InitializeConditions for Integrator: '<S3>/Integrator' */
   Heater_X.Integrator_CSTATE = 0.0;

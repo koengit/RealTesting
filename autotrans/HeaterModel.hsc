@@ -51,12 +51,12 @@ stepSize0 = peekModel (#ptr RT_MODEL_Heater_T, Timing.stepSize0)
 
 putInput :: Input -> IO ()
 putInput input = do
-  pokeInput (#ptr ExtU_Heater_T, Reference) (goal input)
+  pokeInput (#ptr ExtU_Heater_T, goaltemperature) (goal input)
 
 getOutput :: IO Output
 getOutput = do
   time <- fromIntegral <$> clockTick0
-  temperature <- peekOutput (#ptr ExtY_Heater_T, t)
+  temperature <- peekOutput (#ptr ExtY_Heater_T, r)
   boiler <- peekOutput (#ptr ExtY_Heater_T, h)
   level <- peekOutput (#ptr ExtY_Heater_T, l)
   return Output{time = time, temperature = temperature, boiler = boiler, level = level}

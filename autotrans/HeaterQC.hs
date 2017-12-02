@@ -12,6 +12,7 @@ import Data.List( nub, sortOn )
 import Test.QuickCheck
 import Test.QuickCheck.Modifiers
 import GHC.Generics
+import System.Random
 
 --------------------------------------------------------------------------------
 -- heater + controller
@@ -19,10 +20,20 @@ import GHC.Generics
 type Level = Double -- pump level
 type Temp  = Double -- temperature
 
+choose' :: (Ord a, Random a, Fractional a) => (a, a) -> Gen a
+choose' (x, y) =
+  clamp <$> choose (x - delta, y + delta)
+  where
+    delta = (y - x) / 10
+    clamp z
+      | z < x = x
+      | z > y = y
+      | otherwise = z
+
 deriving instance Generic Input
 instance Arbitrary Input where
   arbitrary = do
-    temp <- choose (15, 25)
+    temp <- choose' (10, 30)
     return Input{goal = temp}
   shrink = filter (ok . goal) . genericShrink
     where

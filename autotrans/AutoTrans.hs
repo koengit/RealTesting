@@ -8,12 +8,23 @@ import GHC.Generics
 import VBool
 import Badness
 import Data.List
+import System.Random
+
+choose' :: (Ord a, Random a, Fractional a) => (a, a) -> Gen a
+choose' (x, y) =
+  clamp <$> choose (x - delta, y + delta)
+  where
+    delta = (y - x) / 10
+    clamp z
+      | z < x = x
+      | z > y = y
+      | otherwise = z
 
 deriving instance Generic Input
 instance Arbitrary Input where
   arbitrary = do
-    throttle <- choose (0, 100)
-    brake <- choose (0, 100)
+    throttle <- choose' (0, 100)
+    let brake = 0
     return Input{throttle = throttle, brake = brake}
   shrink = filter ok . genericShrink
     where

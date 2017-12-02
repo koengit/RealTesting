@@ -37,14 +37,14 @@ instance Arbitrary Input where
     return Input{goal = temp}
   shrink = filter (ok . goal) . genericShrink
     where
-      ok x = 0 <= x && x <= 35
+      ok x = 10 <= x && x <= 30
 
 data Line = Line { start :: Input, end :: Input } deriving (Show, Generic)
 
 instance Arbitrary Line where
   arbitrary =
     oneof [
-      Line <$> arbitrary <*> arbitrary,
+      -- Line <$> arbitrary <*> arbitrary,
       (\x -> Line x x) <$> arbitrary]
   shrink (Line x y)
     | x == y = (\x -> Line x x) <$> shrink x
@@ -144,9 +144,9 @@ prop_ReactFast =
     ok = (stableFor >=? val (truncate (50 / delta))) ? (zipWith (<=%) errTemp (val 1), good <$> stableFor `min` 0)
   
   return $
-    whenFail (plot "failed" 300000
+    whenFail (plot "failed" (length test)
             [ ("ok", graph (map howTrue ok))
             , ("goal",graph goalTemp)
             , ("room",graph roomTemp)
             ]) $
-      conj (take (length test) ok)
+      isTrue $ conj (take (length test) ok)

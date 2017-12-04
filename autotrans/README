@@ -1,0 +1,35 @@
+This directory contains code for testing Simulink models using Haskell.
+The Simulink code for the heater model is in Heater.slx, and for the
+transmission is in brdemo_autotrans.mdl.
+
+To use the code you will need:
+  * The Glasgow Haskell compiler (GHC).
+  * The GNU C compiler (GCC).
+  * The Gnuplot plotting tool.
+  * A copy of Matlab.
+
+Start by locating the simulink/include subdirectory of your Matlab
+installation, and copy the files rtw_continuous.h, rtw_solver.h and
+solver_zc.h from there to here. Then run make.
+
+You should now be able to type the following to run the heating
+example with QuickCheck:
+
+    make heater
+    (in the prompt that appears:)
+    main
+
+When the property fails, you will get a plot in the file
+failed_plot_.pdf.
+
+You can also run the transmission example:
+
+    make auto
+    (in the prompt that appears:)
+    import Test.QuickCheck
+    (to test property 2' from the paper:)
+    quickCheck prop_max_speed
+    (to test property 3:)
+    quickCheck prop_two_one_two
+    (to test property 6:)
+    quickCheck prop_speed

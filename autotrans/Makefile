@@ -43,7 +43,7 @@ afc.o: $(AFC_OBJS)
 MATLAB=rtw_continuous.h rtw_solver.h solver_zc.h
 
 define message =
-The files rtw_continuous.h, rts_solver.h and solver_zc.h are missing.
+The files rtw_continuous.h, rtw_solver.h and solver_zc.h are missing.
 You need to get them from a Matlab installation and put them in
 this directory ($(PWD)).
 

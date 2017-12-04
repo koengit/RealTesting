@@ -5,6 +5,7 @@ import Badness
 import Test.QuickCheck
 import Data.List
 import Data.Reflection
+import Data.Ord
 
 infix  4 ==%
 infixr 3 &&%, &&+
@@ -14,7 +15,9 @@ infixr 1 ==>%
 --------------------------------------------------------------------------------
 
 data VBool = VFalse Inf | VTrue Inf -- x non-negative
- deriving (Eq, Ord)
+ deriving Eq
+instance Ord VBool where
+  compare = comparing howTrue
 
 instance Show VBool where
   show (VFalse v) = "false " ++ show (fromInf v)
@@ -124,8 +127,14 @@ x ||+ y = nt (nt x &&+ nt y)
 conj :: [VBool] -> VBool
 conj = foldl' (&&+) true
 
+conj' :: [VBool] -> VBool
+conj' = foldl' (&&%) true
+
 disj :: [VBool] -> VBool
 disj = foldl' (||+) false
+
+disj' :: [VBool] -> VBool
+disj' = foldl' (||%) false
 
 --------------------------------------------------------------------------------
 
@@ -134,8 +143,9 @@ big = 100000
 
 (==>%) :: VBool -> VBool -> VBool
 x ==>% y
-  | isTrue x  = y
-  | otherwise = nt x #+ big
+  = (nt x # 10) ||+ y
+  -- | isTrue x  = y
+  -- | otherwise = nt x #+ big
 
 --------------------------------------------------------------------------------
 

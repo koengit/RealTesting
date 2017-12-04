@@ -8,7 +8,7 @@ import Badness
 import HeaterModel
 
 import Data.Reflection
-import Data.List( nub, sortOn )
+import Data.List( nub, sortOn, foldl' )
 import Test.QuickCheck
 import Test.QuickCheck.Modifiers
 import GHC.Generics
@@ -148,4 +148,4 @@ prop_ReactFast =
             , ("goal",graph goalTemp)
             , ("room",graph roomTemp)
             ]) $
-      isTrue $ conj (take (length test) ok)
+      conj' (take (length test) ok)

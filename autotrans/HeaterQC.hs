@@ -64,27 +64,26 @@ newtype Inputs = Inputs [(Double, Line)] deriving Show
 
 instance Arbitrary Inputs where
   arbitrary = do
-    return (Inputs [(8, Line (Input 24) (Input 24)), (292, Line (Input 10) (Input 10))])
---    duration <- sized $ \n -> choose (0, fromIntegral n)
---    cut duration <$> Inputs <$>
---      infiniteListOf (do
---        sqrtduration <- choose (0, sqrt duration)
---        let duration = sqrtduration^2
---        line <- arbitrary
---        return (duration, line))
-  -- shrink (Inputs inps) =
-  --   Inputs <$>
-  --     merge inps ++
-  --     genericShrink inps
-  --   where
-  --     merge (x:y:xs) =
-  --       merging x y xs ++
-  --       map (x:) (merge (y:xs))
-  --     merge _ = []
-  --     merging (t,x) (u,y) xs =
-  --       [(t+u, x):xs,
-  --        (t+u, y):xs,
-  --        (t+u, Line (start x) (end y)):xs]
+    duration <- sized $ \n -> choose (0, 3*fromIntegral n)
+    cut duration <$> Inputs <$>
+      infiniteListOf (do
+        sqrtduration <- choose (0, sqrt duration)
+        let duration = sqrtduration^2
+        line <- arbitrary
+        return (duration, line))
+  shrink (Inputs inps) =
+    Inputs <$>
+      merge inps ++
+      genericShrink inps
+    where
+      merge (x:y:xs) =
+        merging x y xs ++
+        map (x:) (merge (y:xs))
+      merge _ = []
+      merging (t,x) (u,y) xs =
+        [(t+u, x):xs,
+         (t+u, y):xs,
+         (t+u, Line (start x) (end y)):xs]
 
 cut :: Double -> Inputs -> Inputs
 cut x (Inputs inps) = Inputs (aux x inps)

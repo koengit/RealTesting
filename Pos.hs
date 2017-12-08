@@ -1,7 +1,6 @@
 {-# LANGUAGE ImplicitParams #-}
 module Pos where
 
-import Data.List( sort )
 import Optimize
 
 class Pos a where
@@ -18,8 +17,8 @@ instance (Pos a, Pos b) => Pos (a, b) where
 
 pos :: (?eps :: Double) => Double -> Double
 pos x
-  | x == 0    = 0
-  | otherwise = (1+(x / (?eps + abs x)))/2
+  | ?eps < 0.00001 = if x >= 0 then 1 else 0
+  | otherwise = (1 + tanh (x / ?eps)) / 2
 
 ifPos :: (?eps :: Double, Pos a) => Double -> a -> a -> a
 ifPos x y z =
@@ -55,18 +54,18 @@ minimiseGriewank d =
     xs = replicate d 10
 
 main =
-  putStr $ unlines $ map show $
-    take n . minimize ds xs $ h
+  print $
+    last . take n . minimize ds xs $ h
   where
     k = 1000
-    n = 500
-    ds = [1000,1000,-400]
-    xs = [0,0,200] --[1000,1000,0]
-    h [e2,e1,x] =
-      (fe e1' e2' x, reverse (sort [e1', e2']))
+    n = 10000
+    ds = [100,100,50]
+    xs = [1000,1000,0]
+    h [e1,e2,x] =
+      mul e1' * mul e2' * fe e1' e2' x
      where
-      e1' = 0 `max` e1
-      e2' = 0 `max` e2
-    mul e = (1+e)**0.5
+      e1' = abs e1
+      e2' = abs e2
+    mul e = 1 + log (1+100*e)
 
 

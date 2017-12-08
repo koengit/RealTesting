@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts, DefaultSignatures, TypeOperators #-}
 module Data where
 
 {-
@@ -9,6 +10,7 @@ import Data.List
 import Optimize
 import Badness
 import VBool
+import GHC.Generics
 
 --------------------------------------------------------------------------------
 
@@ -16,15 +18,16 @@ class Data a where
   vals :: a -> [Double]
   fill :: a -> [Double] -> a
 
-instance Data () where
-  vals _   = []
-  fill _ _ = ()
+  default vals :: (Generic a, GData (Rep a)) => a -> [Double]
+  vals = genericVals
 
-instance (Data a, Data b) => Data (a,b) where
-  vals (x,y)    = vals x ++ vals y
-  fill (x,y) vs = (fill x (take k vs), fill y (drop k vs))
-   where
-    k = length (vals x)
+  default fill :: (Generic a, GData (Rep a)) => a -> [Double] -> a
+  fill = genericFill
+
+instance Data ()
+instance (Data a, Data b) => Data (a,b)
+instance (Data a, Data b) => Data (Either a b)
+instance Data a => Data [a]
 
 instance Data Double where
   vals x       = [x]
@@ -34,19 +37,42 @@ instance Data Int where
   vals n       = [fromIntegral n]
   fill _ (v:_) = round v
 
-instance (Data a, Data b) => Data (Either a b) where
-  vals (Left x)  = vals x
-  vals (Right y) = vals y
-  
-  fill (Left  x) = Left  . fill x
-  fill (Right y) = Right . fill y
+--------------------------------------------------------------------------------
 
-instance Data a => Data [a] where
-  vals []     = []
-  vals (x:xs) = vals (x,xs)
-  
-  fill []     vs = []
-  fill (x:xs) vs = uncurry (:) (fill (x,xs) vs)
+genericVals :: (Generic a, GData (Rep a)) => a -> [Double]
+genericVals = gvals . from
+
+genericFill :: (Generic a, GData (Rep a)) => a -> [Double] -> a
+genericFill x xs = to (gfill (from x) xs)
+
+class GData f where
+  gvals :: f a -> [Double]
+  gfill :: f a -> [Double] -> f a
+
+instance (GData f, GData g) => GData (f :*: g) where
+  gvals (x :*: y)    = gvals x ++ gvals y
+  gfill (x :*: y) vs = gfill x (take k vs) :*: gfill y (drop k vs)
+   where
+    k = length (gvals x)
+
+instance (GData f, GData g) => GData (f :+: g) where
+   gvals (L1 x)  = gvals x
+   gvals (R1 y) = gvals y
+
+   gfill (L1 x) = L1 . gfill x
+   gfill (R1 y) = R1 . gfill y
+
+instance GData f => GData (M1 i c f) where
+  gvals (M1 x) = gvals x
+  gfill (M1 x) = M1 . gfill x
+
+instance Data a => GData (K1 i a) where
+  gvals (K1 x) = vals x
+  gfill (K1 x) = K1 . fill x
+
+instance GData U1 where
+  gvals _   = []
+  gfill _ _ = U1
 
 --------------------------------------------------------------------------------
 

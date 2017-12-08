@@ -3,7 +3,7 @@
 all: AutoTransModel.hs HeaterModel.hs AFCModel.hs autotrans.o heater.o afc.o
 
 clean:
-	rm -f *.o *.hi AutoTransModel.hs HeaterModel.hs
+	rm -f *.o *.hi AutoTransModel.hs HeaterModel.hs AFCModel.hs
 
 auto: all
 	ghci AutoTrans -i.. autotrans.o -O -fobject-code

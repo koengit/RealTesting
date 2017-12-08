@@ -1,4 +1,4 @@
-{-# LANGUAGE StandaloneDeriving, DeriveGeneric, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving, DeriveGeneric, DeriveAnyClass #-}
 module AutoTrans where
 
 import AutoTransModel
@@ -10,7 +10,7 @@ import Badness
 import Data.List
 import Data.Maybe
 import System.Random
-import Shape
+import Data
 import Optimize
 
 choose' :: (Ord a, Random a, Fractional a) => (a, a) -> Gen a
@@ -29,6 +29,7 @@ inputOk input = ok (throttle input) &&+ ok (brake input)
     ok x = 0 <=% x &&+ x <=% 100
 
 deriving instance Generic Input
+deriving instance Data Input
 instance Arbitrary Input where
   arbitrary = do
     throttle <- choose' (0, 100)
@@ -36,12 +37,7 @@ instance Arbitrary Input where
     return Input{throttle = throttle, brake = brake}
   shrink = filter (isTrue . inputOk) . genericShrink
 
-instance HasShape Input where
-  shapeOf _ = shapeOf (undefined :: (Double, Double))
-  fromRn s xs = Input x y where (x, y) = fromRn s xs
-  measure (Input x y) = measure (x, y)
-
-data Line = Line { start :: Input, end :: Input } deriving (Show, Generic)
+data Line = Line { start :: Input, end :: Input } deriving (Show, Generic, Data)
 
 lineOk :: Line -> VBool
 lineOk (Line x y) = inputOk x &&+ inputOk y
@@ -57,11 +53,6 @@ instance Arbitrary Line where
     where
       avg x y = (x+y)/2
 
-instance HasShape Line where
-  shapeOf _ = shapeOf (undefined :: (Input, Input))
-  fromRn s xs = Line x y where (x, y) = fromRn s xs
-  measure (Line x y) = measure (x, y)
-
 bin :: (Double -> Double -> Double) -> Input -> Input -> Input
 bin op x y =
   Input {
@@ -71,7 +62,7 @@ bin op x y =
 diff :: Line -> Input
 diff line = bin (-) (end line) (start line)
 
-newtype Inputs = Inputs [(Double, Line)] deriving (Show, HasShape)
+newtype Inputs = Inputs [(Double, Line)] deriving (Show, Generic, Data)
 
 inputsOk :: Inputs -> VBool
 inputsOk (Inputs xs) = conj (map lineOk (map snd xs))
@@ -203,20 +194,19 @@ optimiseVBool f = do
   mapM_ pr results
   plotRes (last results)
   where
-    results = take 1000 (minimize (measure inps) (measure inps) g)
+    results = take 1000 (minimize (vals inps0) (vals inps0) g)
     delta = 0.01
-    inps = Inputs (replicate 10 (10, Line (Input 50 50) (Input 50 50)))
-    s = shapeOf inps
+    inps0 = Inputs (replicate 10 (10, Line (Input 50 50) (Input 50 50)))
     g x =
       inputsOk inps ==>% f delta inputs (runModel inputs)
       where
-        inps = fromRn s x
+        inps = fill inps0 x
         inputs = sampleInputs delta inps
 
-    pr (_, x, y, _) =
-      putStrLn (show (fromRn s x :: Inputs) ++ " -> " ++ show y)
+    pr (x, y, _) =
+      putStrLn (show (fill inps0 x) ++ " -> " ++ show y)
 
-    plotRes (_, x, _, _) =
+    plotRes (x, _, _) =
       plotIt delta inputs (runModel inputs)
       where
-        inputs = sampleInputs delta (fromRn s x)
+        inputs = sampleInputs delta (fill inps0 x)

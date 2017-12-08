@@ -7,6 +7,7 @@ Varying the data-part of test data by means of expressing them as numerical data
 import Test.QuickCheck
 import Data.List
 import Optimize
+import Badness
 import VBool
 
 --------------------------------------------------------------------------------
@@ -78,8 +79,9 @@ instance Data a => Data (List a) where
 
 forData :: (Show a, Data a) => a -> (a -> VBool) -> Property
 forData x h =
-  whenFail (print (fill x ws)) $
-    isTrue ans
+  withBadness $
+    whenFail (print (fill x ws)) $
+      ans
  where
   (ws,ans) = goal   isFalse
            . giveUp 100

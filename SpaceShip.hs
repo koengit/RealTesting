@@ -14,14 +14,16 @@ integrate :: [Double] -> [Double]
 integrate xs = tail ys where ys = 0 : zipWith (+) xs ys
 
 checks :: [Double] -> VBool
-checks xs = check 500 [(>100),(<(-100)),(>100)] xs
+checks [] = false
+checks xs =
+  head $
+  map (>=%100) xs' `thenn`
+    (map (<=%(-100)) xs' `thenn` map (>=%100) xs') 
  where
-  check 0 _  _  = false
-  check _ [] _  = true
-  check _ _  [] = false
-  check n (p:ps) (x:xs)
-    | p x       = check (n-1) ps xs
-    | otherwise = check (n-1) (p:ps) xs
+  xs' = take 6000 xs
+
+thenn :: [VBool] -> [VBool] -> [VBool]
+as `thenn` bs = scanr1 (||+) (zipWith (&&+) as (scanr1 (||+) bs))
 
 prop_Ship :: ([Block],[Block]) -> VBool
 prop_Ship (blks,blks2) =

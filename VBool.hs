@@ -143,7 +143,12 @@ big = 100000
 
 (==>%) :: VBool -> VBool -> VBool
 x ==>% y
+  = (nt x # 10) ||% y
+
+(==>+) :: VBool -> VBool -> VBool
+x ==>+ y
   = (nt x # 10) ||+ y
+
   -- | isTrue x  = y
   -- | otherwise = nt x #+ big
 

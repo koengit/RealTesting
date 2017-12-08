@@ -3,6 +3,7 @@ module Main where
 import Test.QuickCheck
 import VBool
 import Data
+import Badness
 
 ship :: [Double] -> [Double]
 ship accs = xs
@@ -49,7 +50,10 @@ prop_Ship blks =
  where
   accs = concat [ replicate n x | Block n x <- blks ]
 
-main = quickCheck (\bs -> forData bs prop_Ship)
+main =
+  quickCheck $
+  withBadness $ \bs ->
+    forData bs prop_Ship
 --main = quickCheck (isTrue . prop_Ship)
 
 data Block = Block Int Double

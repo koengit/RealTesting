@@ -11,6 +11,8 @@ import Optimize
 import Badness
 import VBool
 import GHC.Generics
+import Badness
+import Data.Reflection
 
 --------------------------------------------------------------------------------
 
@@ -103,11 +105,8 @@ instance Data a => Data (List a) where
 
 --------------------------------------------------------------------------------
 
-forData :: (Show a, Data a) => a -> (a -> VBool) -> Property
-forData x h =
-  withBadness $
-    whenFail (print (fill x ws)) $
-      ans
+forData :: (Show a, Data a, Given Badness) => a -> (a -> VBool) -> (a, VBool)
+forData x h = (fill x ws, ans)
  where
   (ws,ans) = goal   isFalse
            . giveUp 100

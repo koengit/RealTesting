@@ -6,6 +6,7 @@ Varying the data-part of test data by means of expressing them as numerical data
 -}
 
 import Test.QuickCheck
+import Data.List
 import Optimize
 import VBool
 import GHC.Generics
@@ -103,16 +104,16 @@ instance Data a => Data (List a) where
 
 forData :: (Show a, Data a) => a -> (a -> VBool) -> Property
 forData x h =
-  whenFail (do print (fill x ws)) $
+  whenFail (print (fill x ws)) $
     isTrue ans
  where
   (ws,ans) = goal   isFalse
-           . giveUp 50
+           . giveUp 100
            . take   1000
            . minimize (repeat 15) (vals x)
            $ h . fill x
 
--- dummy implmentation without NM for comparison
+-- dummy implementation without NM for comparison
 forData0 :: (Show a, Data a) => a -> (a -> VBool) -> Property
 forData0 x h =
   whenFail (print x) $ isTrue (h x)

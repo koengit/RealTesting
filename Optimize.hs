@@ -49,8 +49,11 @@ giveUp n = go n
 -- produces a possibly infinite list of (point,best-result,worst-result)
 minimize :: Ord a => Point -> Point -> (Point -> a) -> [(Point,a,a)]
 minimize _  [] h = [([],x,x)] where x = h []
-minimize box p h = go (sort [ pair p | p <- ps0 ])
+minimize box0 p h = go (sort [ pair p | p <- ps0 ])
  where
+  -- trim box
+  box = take (length p) box0
+
   -- initial points
   ps0 =
     map (zipWith (+) p) $

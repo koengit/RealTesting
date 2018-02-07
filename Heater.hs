@@ -13,7 +13,7 @@ import Test.QuickCheck
 import Test.QuickCheck.Modifiers
 
 --------------------------------------------------------------------------------
--- heater + controller
+-- heater + plant
 
 type Level = Double -- pump level
 type Temp  = Double -- temperature
@@ -48,7 +48,7 @@ plant pump = roomTemp
                                    , (outsideCoeff, outsideTemp)
                                    ]
 
--- controller
+-- plant
 
 type Control = (Double, Double, Double)
 
@@ -129,23 +129,47 @@ prop_Shrink (Fixed g@(GoalTemp _ _)) =
 
 --------------------------------------------------------------------------------
 
-for' n = foldr1 (&&+) . take n
-
-prop_ReactFast :: Given Badness => GoalTemp -> Property
+prop_ReactFast :: GoalTemp -> Property
 prop_ReactFast (GoalTemp _ goalTemp) =
   whenFail (plot "failed" 300
-            [ ("ok", graph (map howTrue ok))
+            [[ ("ok", graph (map ((* 5) . fromIntegral . fromEnum) ok))
             , ("goal",graph goalTemp)
             , ("room",graph roomTemp)
-            ]) $
-    for' tot ok
+            ]]) $
+    and (take 1000 ok)
  where
-  tot = 1000
+  ok :: [Bool]
+  ok = (stableFor >=? 50) ? (zipWith (<=) errTemp (val 1), val True)
 
-  ok = (stableFor >=? 50) ? (zipWith (<=%) errTemp (val 1), val true)
-
+  errTemp, roomTemp :: [Temp]
   errTemp  = abs (goalTemp - roomTemp)
   roomTemp = plant pump
+
+  pump :: [Level]
+  pump     = controller cgood goalTemp roomTemp
+
+  stableFor = n
+   where
+    --n = 1 |> (goalTemp ==? pre goalTemp ? (pre n+1,1))
+    n = integ (1 `in1t` 1 `reset` (1 `when` (goalTemp /=? pre goalTemp)))
+
+prop_ReactFast_VBool :: Given Badness => GoalTemp -> Property
+prop_ReactFast_VBool (GoalTemp _ goalTemp) =
+  whenFail (plot "failed" 300
+            [[ ("ok", graph (map howTrue ok))
+            , ("goal",graph goalTemp)
+            , ("room",graph roomTemp)
+            ]]) $
+    conj (take 1000 ok)
+ where
+  ok :: [VBool]
+  ok = (stableFor >=? 50) ? (zipWith (<=%) errTemp (val 1), val true)
+
+  errTemp, roomTemp :: [Temp]
+  errTemp  = abs (goalTemp - roomTemp)
+  roomTemp = plant pump
+
+  pump :: [Level]
   pump     = controller cgood goalTemp roomTemp
 
   stableFor = n
@@ -154,17 +178,17 @@ prop_ReactFast (GoalTemp _ goalTemp) =
     n = integ (1 `in1t` 1 `reset` (1 `when` (goalTemp /=? pre goalTemp)))
 
 --------------------------------------------------------------------------------
--- show a given controller
+-- show a given plant
 
 display :: String -> (S Temp -> S Level) -> IO ()
-display name controller =
+display name plant =
   plot name 300
-  [ ("room", graph roomTemp)
+  [[ ("room", graph roomTemp)
   , ("pump", graph (fmap (50*) pump))
-  ]
+  ]]
  where
   roomTemp = plant pump
-  pump     = controller roomTemp
+  pump     = plant roomTemp
  
 --------------------------------------------------------------------------------
 -- search
@@ -191,7 +215,7 @@ fit c = fromInteger n / 100 + m
 
 main1 :: IO ()
 main1 =
-  do putStrLn "-- a good controller --"
+  do putStrLn "-- a good plant --"
      print cgood
      print (analyze cgood)
      print (fit cgood)

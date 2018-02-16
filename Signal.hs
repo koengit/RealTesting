@@ -1,10 +1,16 @@
 {-# LANGUAGE DeriveFunctor #-}
 module Signal where
 
+import VBool
+
 --------------------------------------------------------------------------------
 
 data Sig a = Sig{ val :: a, next :: Maybe (Double,Sig a) }
  deriving (Eq, Show, Functor)
+
+mkSig :: a -> [(Double,a)] -> Sig a
+mkSig a []          = Sig a Nothing
+mkSig a ((d,b):dbs) = Sig a (Just (d, mkSig b dbs))
 
 delta :: Sig a -> Maybe Double
 delta a = fst `fmap` next a
@@ -18,7 +24,7 @@ shift :: Double -> Sig a -> Sig a
 shift d (Sig x (Just (t,a))) | d > 0 =
   if d < t
     then Sig x (Just (t-d,a))
-    else shift (t-d) a
+    else shift (d-t) a
 shift _ a                            = a
 
 --------------------------------------------------------------------------------
@@ -43,7 +49,10 @@ scan f (Sig x rx) =
     Just (d,z) -> let a = scan f z in Sig (f d x (val a)) (Just (d, a))
 
 always :: Sig VBool -> Sig VBool
-always = scan op where op d x y = 
+always = scan op where op d x y = (x#d) &&+ y
 
+eventually :: Sig VBool -> Sig VBool
+eventually = scan op where op d x y = (x#d) ||+ y
 
+--------------------------------------------------------------------------------
 

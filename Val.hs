@@ -14,82 +14,104 @@ newtype Val a = Val [(a,VBool)]
 val :: a -> Val a
 val x = Val [(x,true)]
 
+the :: Val a -> a
+the (Val xs) = head [ x | (x,v) <- xs, isTrue v ]
+
+mkVal :: Ord a => [(a,VBool)] -> Val a
+mkVal = Val . M.toList . M.fromListWith (||+)
+
+vbool :: VBool -> Val Bool
+vbool v =
+  Val [ (False, nt v)
+      , (True,  v)
+      ]
+
 class Choice a where
-  ifThenElse :: VBool -> a -> a -> a
+  ifThenElse :: Val Bool -> a -> a -> a
 
 instance Choice Double where
-  ifThenElse c x y = if isTrue c then x else y -- loses VBool info
-
-instance Choice VBool where
-  ifThenElse c x y = (c &&+ x) ||+ (nt c &&+ y)
+  ifThenElse c x y =
+    if the c then x else y -- loses VBool info
 
 instance Ord a => Choice (Val a) where
-  ifThenElse c (Val xs) (Val ys) = Val (go xs ys)
-   where
-    go xs ys
-      | null xs && null ys                  = []
-      | null ys || (not (null xs) && x < y) = (x, c    &&+ vx)         : go xs' ys
-      | null xs || (not (null ys) && y < x) = (y, nt c &&+ vy)         : go xs ys'
-      | otherwise                           = (x, ifThenElse c vx vy)  : go xs' ys'
-     where
-      (x,vx):xs' = xs
-      (y,vy):ys' = ys
+  ifThenElse (Val cs) (Val xs) (Val ys) =
+    mkVal
+    [ (z,cv &&+ zv)
+    | (c,cv) <- cs
+    , (z,zv) <- if c then xs else ys
+    ]
 
 mapVal :: Ord b => (a->b) -> Val a -> Val b
 mapVal f (Val xs) =
-  Val $ M.toList $ M.fromListWith (||+)
+  mkVal
   [ (f x, a)
   | (x,a) <- xs
   ]
 
-zipVal :: Ord c => (a->b->c) -> Val a -> Val b -> Val c
-zipVal f (Val xs) (Val ys) =
-  Val $ M.toList $ M.fromListWith (||+)
+liftVal :: Ord c => (a->b->c) -> Val a -> Val b -> Val c
+liftVal f (Val xs) (Val ys) =
+  mkVal
   [ (f x y, a &&+ b)
   | (x,a) <- xs
   , (y,b) <- ys
   ]
 
 instance (Ord a, Num a) => Num (Val a) where
-  (+)         = zipVal (+)
-  (-)         = zipVal (-)
-  (*)         = zipVal (*)
+  (+)         = liftVal (+)
+  (-)         = liftVal (-)
+  (*)         = liftVal (*)
   abs         = mapVal abs
   negate      = mapVal negate
   signum      = mapVal signum
   fromInteger = val . fromInteger
 
 instance (Ord a, Fractional a) => Fractional (Val a) where
-  (/)          = zipVal (/)
+  (/)          = liftVal (/)
   recip        = mapVal recip
   fromRational = val . fromRational
 
-smash :: Val VBool -> VBool
-smash (Val xs) = foldr1 (||+) [ b &&+ x | (x,b) <- xs ]
-
 class VCompare a where
-  (==?), (/=?), (>?), (>=?), (<?), (<=?) :: a -> a -> VBool
-  
+  (==?), (/=?), (>?), (>=?), (<?), (<=?) :: a -> a -> Val Bool
+
 instance VCompare Double where
-  (==?) = (==%)
-  (/=?) = \x y -> nt (x ==% y)
-  (>?)  = (>%)
-  (>=?) = (>=%)
-  (<?)  = (<%)
-  (<=?) = (<=%)
-  
+  (==?) = compDouble (==%)
+  (/=?) = compDouble (\x y -> nt (x ==% y))
+  (>?)  = compDouble (>%)
+  (>=?) = compDouble (>=%)
+  (<?)  = compDouble (<%)
+  (<=?) = compDouble (<=%)
+
+compDouble op x y =
+  vbool (x `op` y)
+
 instance VCompare a => VCompare (Val a) where
-  x ==? y = smash (zipVal (==?) x y)
-  x /=? y = smash (zipVal (/=?) x y)
-  x >?  y = smash (zipVal (>?)  x y)
-  x >=? y = smash (zipVal (>=?) x y)
-  x <?  y = smash (zipVal (<?)  x y)
-  x <=? y = smash (zipVal (<=?) x y)
+  (==?) = compVal (==?)
+  (/=?) = compVal (/=?)
+  (>?)  = compVal (>?)
+  (>=?) = compVal (>=?)
+  (<?)  = compVal (<?)
+  (<=?) = compVal (<=?)
+
+compVal op x y =
+  smash (liftVal op x y)
+
+smash :: Ord a => Val (Val a) -> Val a
+smash (Val vs) =
+  mkVal
+  [ (w, a &&+ b)
+  | (Val ws,a) <- vs
+  , (w     ,b) <- ws
+  ]
+
+--------------------------------------------------------------------------------
 
 forget :: Ord a => Val a -> Val a
 forget (Val xs) = Val (sort (take 100 (sortBy (comparing worst) xs)))
  where
   worst (_,a) = -howTrue a
+
+propVal :: Val Bool -> VBool
+propVal (Val bs) = foldr1 (&&+) [ if b then v else nt v | (b,v) <- bs ]
 
 --------------------------------------------------------------------------------
 
@@ -111,11 +133,11 @@ d = 2
 
 prop_Basic f x =
   withBadness $
-  let (y,b) = forData x (\x -> f (x :: Double) >=? 0) in
+  let (y,b) = forData x (\x -> propVal (f (x :: Double) >=? 0)) in
     whenFail (print y) (isTrue b)
 
 prop_Val f x =
   withBadness $
-  let (y,b) = forData x (\x -> f (val x) >=? 0) in
+  let (y,b) = forData x (\x -> propVal (f (val x) >=? 0)) in
     whenFail (print y) (isTrue b)
 

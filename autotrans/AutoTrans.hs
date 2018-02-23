@@ -1,5 +1,5 @@
 {-# LANGUAGE StandaloneDeriving, DeriveGeneric, DeriveAnyClass #-}
-module AutoTrans where
+module AutoTrans(module AutoTrans, quickCheck, withBadness) where
 
 import AutoTransModel
 import Plot
@@ -125,11 +125,10 @@ withTestCase prop = property $ \inps -> ioProperty $ do
 plotIt :: Double -> [Input] -> [Output] -> IO ()
 plotIt delta inputs outputs =
   plot "failed" (ceiling (fromIntegral (length inputs) / delta))
-      [("throttle", graph (map throttle inputs)),
-       ("brake", graph (map brake inputs)),
-       ("speed", graph (map speed outputs)),
-       ("rpm", graph (map rpm outputs)),
-       ("gear", graph (map gear outputs))]
+      [[("throttle", graph (map throttle inputs))],
+       [("speed", graph (map speed outputs))],
+       [("rpm", graph (map rpm outputs))],
+       [("gear", graph (map gear outputs))]]
 
 prop_max_speed :: Property
 prop_max_speed =

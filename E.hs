@@ -95,12 +95,32 @@ recs :: E -> [Int] -> [VBool]
 recs e xs = eps e : if null xs then [] else recs (step e (head xs)) (tail xs)
 
 step :: E -> Int -> E
-step (p :+: q) x = step p x :+: step q x
-step (p :&: q) x = step p x :&: step q x
-step (p :>: q) x = (eps p .* step q x) :+: (step p x :>: q)
-step (Star p)  x = step p x :>: Star p
+step (p :+: q) x = step p x .+ step q x
+step (p :&: q) x = step p x .& step q x
+step (p :>: q) x = (eps p .* step q x) .+ (step p x .> q)
+step (Star p)  x = step p x .> star p
 step (C c)     x = EpsNil (c ==% x)
 step _         x = nil
+
+EpsNil v .+ q        | isFalse v || isTrue (eps q) = q
+p        .+ EpsNil v | isFalse v || isTrue (eps p) = p
+p        .+ q                                      = p :+: q
+
+EpsNil v .& EpsNil w = EpsNil (v &&+ w)
+EpsNil v .& q        | isFalse v || isTrue (eps q) = EpsNil v
+p        .& EpsNil v | isFalse v || isTrue (eps p) = EpsNil v
+p        .& q                                      = p :&: q
+
+EpsNil v .> EpsNil w             = EpsNil (v &&+ w)
+EpsNil v .> q        | isFalse v = EpsNil v
+p        .> EpsNil v | isFalse v = EpsNil v
+EpsNil v .> q        | isTrue  v = q
+p        .> EpsNil v | isTrue  v = p
+p        .> q                    = p :>: q
+
+star (EpsNil v) = EpsNil (if isTrue v then v else true)
+star (Star p)   = star p
+star p          = Star p
 
 eps :: E -> VBool
 eps (p :+: q)  = eps p ||+ eps q

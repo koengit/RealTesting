@@ -217,6 +217,34 @@ prop_NoMagicSquares args =
   group k = takeWhile (not . null) . map (take k) . iterate (drop k)
 
 --------------------------------------------------------------------------------
+-- property 4: magic squares
+
+prop_SendMoreMoney args =
+  forData args $ \(s,(e,(n,(d,(m,(o,(r,y))))))) ->
+    let as = [s,e,n,d,m,o,r,y] in
+    ( foldr (&&+) true (
+        [ 0 <=% a &&+ a <=% 9 | a <- as::[Int] ]
+     ++ [ nt (a ==% b) | (a,b) <- pairs as ]
+      )
+  &&+ plus 0 (reverse [s,e,n,d]) (reverse [m,o,r,e]) ==% reverse [m,o,n,e,y]
+  -- &&+ val [s,e,n,d] + val [m,o,r,e] ==% val [m,o,n,e,y]
+    )
+    ==>% false
+ where
+  val []     = 0
+  val (a:as) = (10^length as) * a + val as
+
+  plus c []     []     = c ?: []
+  plus c as     []     = plus c as [0]
+  plus c []     bs     = plus c [0] bs
+  plus c (a:as) (b:bs) = (s `mod` 10) ?: plus (s `div` 10) as bs
+   where
+    s = a + b + c
+
+  0 ?: [] = []
+  d ?: ds = d:ds
+
+--------------------------------------------------------------------------------
 -- main
 
 main =
@@ -225,6 +253,7 @@ main =
     --prop_SeqIntersection'
     --prop_NoPalindromes
     prop_NoMagicSquares
+    --prop_SendMoreMoney
 
 --------------------------------------------------------------------------------
 

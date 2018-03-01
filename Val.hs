@@ -78,6 +78,21 @@ instance (Ord a, Fractional a) => Fractional (Val a) where
   recip        = mapVal recip
   fromRational = val . fromRational
 
+instance (Ord a, Floating a) => Floating (Val a) where
+  pi = val pi
+  exp = mapVal exp
+  log = mapVal log
+  sin = mapVal sin
+  cos = mapVal cos
+  asin = mapVal asin
+  acos = mapVal acos
+  atan = mapVal atan
+  sinh = mapVal sinh
+  cosh = mapVal cosh
+  asinh = mapVal asinh
+  acosh = mapVal acosh
+  atanh = mapVal atanh
+
 class VCompare a where
   (==?), (/=?), (>?), (>=?), (<?), (<=?) :: a -> a -> Val Bool
 
@@ -103,7 +118,7 @@ instance VCompare a => VCompare (Val a) where
 compVal op x y =
   smash (liftVal op x y)
 
-smash :: Ord a => Val (Val a) -> Val a
+smash :: Ord a => Val (Val a) -> Val a -- monadic join
 smash (Val vs) =
   mkVal
   [ (w, a &&+ b)
@@ -131,6 +146,30 @@ f x =
   ifThenElse (x <? a) 10
     (ifThenElse (x >? (a+d)) 20
       (-10))
+
+f0 :: (Fractional a, Num a, VCompare a, Choice a) => a -> a
+f0 x = 0.01*x^2 -x +25 - 0.000013*x^3
+
+f1 :: (Fractional a, Num a, VCompare a, Choice a) => a -> a
+f1 x =
+  ifThenElse ((x <? 200) ||? (x >? 300)) (0.01*x^2 -x +25 - 0.000013*x^3) $
+  (0.01*x^2 -x -20 - 0.000013*x^3)
+
+f2 :: (Fractional a, Floating a, Num a, VCompare a, Choice a) => a -> a
+f2 x = sin ((x-50) / 45) * (x / 200) + 1.2
+
+f3 :: (Fractional a, Floating a, Num a, VCompare a, Choice a) => a -> a
+f3 x =
+  (ifThenElse ((x <? 200) ||? (x >? 300)) 1 $
+    sin (x * 0.02 *pi + 0.5*pi)
+  ) * 100 + 99
+
+f4 :: (Fractional a, Floating a, Num a, VCompare a, Choice a) => a -> a
+f4 x =
+  (ifThenElse (x <? 200) 1 $
+   ifThenElse (x >? 300) 1 $
+    sin (x * 0.02 *pi + 0.5*pi)
+  ) * 100 + 99
 
 g :: (Fractional a, VCompare a, Choice a) => a -> a
 g x =
@@ -199,10 +238,51 @@ plot (xL,xR) fs =
   miny = minY-dy
   maxy = maxY+dy
 
-plotf f fR = plot (0,500)
+plotf f fR = plot (-100,500)
              [ ("f", f)
-             , ("fR", \x -> howTrue (propVal (fR (val x) >=? 0)))
+             , ("fT", \x -> howTrue (propVal (fR (val x) >=? 0)))
              ]
+
+plot3D :: (Double,Double) -> (Double,Double)
+       -> [(String, (Double,Double) -> Double)] -> IO ()
+plot3D (xL,xR) (yL,yR) fs =
+  do sequence_
+       [ writeFile ("plot-" ++ name ++ ".xyz") $ unlines $
+           [ show x ++ " " ++ show y ++ " " ++ show z
+           | ((x,y),z) <- xys `zip` zs
+           ]
+       | ((name,_),zs) <- fs `zip` zss
+       ]
+     writeFile "plot.in" $ unlines $
+       [ "set terminal pdf enhanced font 'Times,18' lw 3"
+       , "set grid"
+       , "set autoscale xy"
+       , "set zrange [" ++ show minz ++ ":" ++ show maxz ++ "]"
+       , "set output 'plot3d.pdf'"
+       , "set dgrid3d 30,30"
+       , "set hidden3d"
+       ] ++
+       [ "splot " ++
+         intercalate ", "
+         [ "'plot-" ++ name ++ ".xyz' with lines title '" ++ name ++ "'"
+         | (name,_) <- fs
+         ]
+       ]
+     system "gnuplot < plot.in"
+     return ()
+ where
+  dx  = (xR-xL) / 30
+  dy  = (yR-yL) / 30
+  xs  = [xL,xL+dx..xR]
+  ys  = [yL,yL+dy..yR]
+  xys = [ (x,y) | x <- xs, y <- ys ]
+  zss = [ map f xys | (_,f) <- fs ]
+  
+  minZ = minimum (concat zss)
+  maxZ = maximum (concat zss)
+  dz   = (maxZ-minZ) / 33 -- 3%
+  minz = minZ-dz
+  maxz = maxZ+dz
 
 ----
 
@@ -259,8 +339,8 @@ instance Data Ps
 
 instance Arbitrary Ps where
   arbitrary =
-    do k <- arbitrary
-       dxs <- sequence [ do d <- choose (0,30)
+    do k <- return 4 -- arbitrary
+       dxs <- sequence [ do d <- choose (0,50)
                             x <- choose (-1,1)
                             return (d,x)
                        | i <- [0..k::Int]
@@ -284,8 +364,9 @@ instance Arbitrary Ps where
     -}
     
 pieces :: Ps -> [Double]
-pieces End           = []
-pieces (Piece k x q) = replicate k x ++ pieces q
+pieces End             = []
+pieces (Piece _ x End) = repeat x
+pieces (Piece k x q)   = replicate k x ++ pieces q
 
 values :: Ps -> [Double]
 values End           = []
@@ -295,20 +376,20 @@ f_Ship pv bs =
   foldr (&&+) true [ (-1) <=% x &&+ x <=% 1 | x <- values bs ] ==>%
     (pv $ nott $ foldr (||?) (vbool false) ps)
  where
-  ps = observer (ship2 (map val (take 100 (pieces bs))))
+  ps = observer (ship (map val (take 80 (pieces bs))))
 
 prop_Ship bs =
   withBadness $
     let (y,b) = forData bs (f_Ship propVal)
-     in whenFail (print y) $
+     in whenFail (do print y; print b) $
           isTrue $
             b
 
 main1 = quickCheck prop_Ship
 
-main2 = plot (0.3,0.5)
-        -- [ ("p",  \a -> howTrue $ f_Ship propVal0 $ accs a)
-        [ ("pR", \a -> howTrue $ f_Ship propVal  $ accs a)
+main2 = plot (-1,1)
+        [ ("p",  \a -> howTrue $ f_Ship propVal0 $ accs a)
+        -- , ("pT", \a -> howTrue $ f_Ship propVal  $ accs a)
         ]
 
 accs a = Piece 15 (a-1)
@@ -316,6 +397,15 @@ accs a = Piece 15 (a-1)
        $ Piece 60 (-1)
        $ End
 
-main = main2
+prop_Ship' a =
+  withBadness $
+    let (y,b) = forData a (\a -> f_Ship propVal (accs a))
+     in whenFail (print y) $
+          isTrue $
+            b
 
+main3 = quickCheck prop_Ship'
 
+--main = main2
+main = main1
+--main = do main2 --; main3

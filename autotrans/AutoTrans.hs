@@ -188,6 +188,11 @@ prop_speed_vbool delta outputs =
     nt (conj [ rpm output <% w | output <- outputs ] &&+
         disj [ speed output >% v | output <- take (truncate (t / delta)) outputs ])
 
+prop_never_gear3_and_speed_low :: Property
+prop_never_gear3_and_speed_low =
+  withBadness $ withTestCase $ \delta _ outputs ->
+    conj [ nt (gear output ==% 3 &&+ speed output <=% 30) | output <- outputs ]
+
 optimiseVBool :: (Double -> [Input] -> [Output] -> VBool) -> IO ()
 optimiseVBool f = do
   mapM_ pr results

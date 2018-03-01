@@ -49,7 +49,7 @@ optimise func =
 optimise' :: Double -> TestFunction -> ([Double], Double)
 optimise' w func = (xs, y)
   where
-    (_, xs, y, _) =
+    (xs, y, _) =
       last . take n . minimize ds ps $ eval func
     (lo, hi) = inputSpace func
 

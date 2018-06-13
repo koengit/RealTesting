@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, UndecidableInstances, TypeSynonymInstances, FlexibleInstances, DataKinds #-}
 module VBool where
 
 import Badness
@@ -8,8 +8,8 @@ import Data.Reflection
 import Data.Ord
 
 infix  4 ==%
-infixr 3 &&%, &&+
-infixr 3 ||%, ||+
+infixr 3 &&%, &&+, &&^
+infixr 3 ||%, ||+, ||^
 infixr 1 ==>%
 
 --------------------------------------------------------------------------------
@@ -39,6 +39,10 @@ plusInf :: Inf -> Inf -> Inf
 plusInf (Finite x) (Finite y) = Finite (x+y)
 plusInf _ _ = Infinite
 
+distInf :: Inf -> Inf -> Inf
+distInf (Finite x) (Finite y) = Finite (sqrt (x^2+y^2))
+distInf _ _ = Infinite
+
 -- parInf x y = 1/(1/x + 1/y)
 parInf :: Inf -> Inf -> Inf
 parInf (Finite x) (Finite y)
@@ -57,7 +61,7 @@ scaleInf (Finite x) a = Finite (x*fromRational (toRational a))
 scaleInf Infinite _ = Infinite
 
 fromInf :: Inf -> Double
-fromInf (Finite x) = x
+fromInf (Finite x) | x >= 0 = x
 fromInf Infinite = 1/0
 
 toInf :: Real a => a -> Inf
@@ -82,7 +86,7 @@ bad x = VFalse (toInf x)
 good x = VTrue (toInf x)
 
 howTrue :: VBool -> Double
-howTrue (VFalse x) = -fromInf x
+howTrue (VFalse x) = -1 - fromInf x
 howTrue (VTrue x) = 1 + fromInf x
 
 isTrue, isFalse :: VBool -> Bool
@@ -108,6 +112,15 @@ nt :: VBool -> VBool
 nt (VFalse x) = VTrue x
 nt (VTrue x) = VFalse x
 
+conjunction :: (Inf -> Inf -> Inf) -> (Inf -> Inf -> Inf) -> (Inf -> Inf -> Inf) -> VBool -> VBool -> VBool
+conjunction f _ _ (VFalse x) (VFalse y) = VFalse (f x y)
+conjunction _ g _ (VTrue x) (VTrue y) = VTrue (g x y)
+conjunction _ _ h (VFalse x) (VTrue y) = VFalse (h x y)
+conjunction _ _ h (VTrue x) (VFalse y) = VFalse (h y x)
+
+disjunction :: (Inf -> Inf -> Inf) -> (Inf -> Inf -> Inf) -> (Inf -> Inf -> Inf) -> VBool -> VBool -> VBool
+disjunction f g h x y = nt (conjunction f g h (nt x) (nt y))
+
 (&&%) :: VBool -> VBool -> VBool
 VFalse x &&% VFalse y = VFalse (x `max` y)
 VTrue x &&% VTrue y = VTrue (x `min` y)
@@ -120,9 +133,30 @@ VTrue x &&+ VTrue y = VTrue (parInf x y)
 VTrue _x &&+ VFalse y = VFalse y
 VFalse x &&+ VTrue _y = VFalse x
 
+(&&++) :: VBool -> VBool -> VBool
+VFalse x &&++ VFalse y = VFalse (plusInf x y)
+VTrue x &&++ VTrue y = VTrue (plusInf x y)
+VTrue _x &&++ VFalse y = VFalse y
+VFalse x &&++ VTrue _y = VFalse x
+
+(&&^) :: VBool -> VBool -> VBool
+VFalse x &&^ VFalse y = VFalse (distInf x y)
+VTrue x &&^ VTrue y = VTrue (parInf x y)
+VTrue _x &&^ VFalse y = VFalse y
+VFalse x &&^ VTrue _y = VFalse x
+
+(&&^^) :: VBool -> VBool -> VBool
+VFalse x &&^^ VFalse y = VFalse (distInf x y)
+VTrue x &&^^ VTrue y = VTrue (distInf x y)
+VTrue _x &&^^ VFalse y = VFalse y
+VFalse x &&^^ VTrue _y = VFalse x
+
 (||%), (||+) :: VBool -> VBool -> VBool
-x ||% y = nt (nt x &&% nt y)      
-x ||+ y = nt (nt x &&+ nt y)      
+x ||% y = nt (nt x &&% nt y)
+x ||+ y = nt (nt x &&+ nt y)
+x ||^ y = nt (nt x &&^ nt y)
+x ||++ y = nt (nt x &&++ nt y)
+x ||^^ y = nt (nt x &&^^ nt y)
 
 conj :: [VBool] -> VBool
 conj = foldl' (&&+) true
@@ -169,6 +203,7 @@ class VEq a where
 
 instance VEq Double where
   x ==% y
+     -- ??? REALLY??? infinity?
     | x == y    = true
     | otherwise = bad (abs (x-y))
 

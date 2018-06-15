@@ -112,14 +112,14 @@ nt :: VBool -> VBool
 nt (VFalse x) = VTrue x
 nt (VTrue x) = VFalse x
 
-conjunction :: (Inf -> Inf -> Inf) -> (Inf -> Inf -> Inf) -> (Inf -> Inf -> Inf) -> VBool -> VBool -> VBool
-conjunction f _ _ (VFalse x) (VFalse y) = VFalse (f x y)
-conjunction _ g _ (VTrue x) (VTrue y) = VTrue (g x y)
-conjunction _ _ h (VFalse x) (VTrue y) = VFalse (h x y)
-conjunction _ _ h (VTrue x) (VFalse y) = VFalse (h y x)
+conjunction :: (Inf -> Inf -> Inf) -> (Inf -> Inf -> Inf) -> VBool -> VBool -> VBool
+conjunction f _ (VFalse x) (VFalse y) = VFalse (f x y)
+conjunction _ g (VTrue x) (VTrue y) = VTrue (g x y)
+conjunction _ _ (VFalse x) (VTrue _) = VFalse x
+conjunction _ _ (VTrue _) (VFalse x) = VFalse x
 
-disjunction :: (Inf -> Inf -> Inf) -> (Inf -> Inf -> Inf) -> (Inf -> Inf -> Inf) -> VBool -> VBool -> VBool
-disjunction f g h x y = nt (conjunction f g h (nt x) (nt y))
+disjunction :: (Inf -> Inf -> Inf) -> (Inf -> Inf -> Inf) -> VBool -> VBool -> VBool
+disjunction f g x y = nt (conjunction f g (nt x) (nt y))
 
 (&&%) :: VBool -> VBool -> VBool
 VFalse x &&% VFalse y = VFalse (x `max` y)
@@ -190,8 +190,8 @@ x ==>+ y
 
 (>%), (>=%), (<=%), (<%) :: Real a => a -> a -> VBool
 x >=% y
-  | x >= y    = good (x-y)
-  | otherwise = bad (y-x)
+  | x >= y    = good (x-y+1)
+  | otherwise = bad (y-x+1)
 x >%  y = nt (x <=% y)
 x <%  y = y >% x
 x <=% y = y >=% x

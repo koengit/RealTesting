@@ -10,23 +10,23 @@ import Data.List
 import Control.Monad
 import Control.Arrow
 
-newtype Var = Var Int deriving (Eq, Ord, Show, CoArbitrary)
+newtype Var = Var Int deriving (Eq, Ord, CoArbitrary)
 instance Arbitrary Var where
   arbitrary = elements vars
   shrink x = takeWhile (/= x) vars
 
--- instance Show Var where
---   show (Var x) = "x" ++ show x
+instance Show Var where
+  show (Var x) = "x" ++ show x
 
 vars :: [Var]
 vars = map Var [1..10]
 
 data Term = Term Double [Var]
-  deriving (Eq, Ord, Show, Generic)
+  deriving (Eq, Ord, Generic)
 
--- instance Show Term where
---   show (Term x xs) =
---     show x ++ " " ++ concatMap show xs
+instance Show Term where
+  show (Term x xs) =
+    show x ++ " " ++ concatMap show (sort xs)
 
 instance Arbitrary Term where
   arbitrary = Term <$> arbitrary <*> smaller arbitrary
@@ -36,13 +36,13 @@ instance Arbitrary Term where
   shrink = genericShrink
 
 newtype Poly = Poly [Term]
-  deriving (Eq, Ord, Show, Arbitrary)
+  deriving (Eq, Ord, Arbitrary)
 
 -- instance Arbitrary Poly where
 --   arbitrary = Poly <$> vector 10
 
--- instance Show Poly where
---   show (Poly ts) = intercalate " + " (map show ts)
+instance Show Poly where
+  show (Poly ts) = intercalate " + " (map show ts)
 
 newtype Valuation = Valuation [(Var, Double)]
   deriving (Eq, Ord, Show)
@@ -82,20 +82,29 @@ nelderMead' op f (Valuation xs0) =
     h xs = prop op f (Valuation (zipWith twiddle xs0 xs))
     twiddle (x, _) y = (x, y)
 
+nelderMeads :: (VBool -> VBool -> VBool) -> (Valuation -> (Double, Double)) -> [Valuation] -> Double
+nelderMeads op f xss =
+  minimum (map (nelderMead op f) xss)
+
+genRoot :: Gen (Valuation -> Double)
+genRoot = do
+  poly <- arbitrary
+  return (\xs -> abs (eval poly xs))
+
 -- Generate an always-positive function using abs
 genTrue :: Gen (Valuation -> Double)
 genTrue = do
-  poly <- arbitrary
-  return (\xs -> abs (eval poly xs) + 1)
+  val <- genRoot
+  return (\xs -> val xs + 1)
 
 -- Generate a probably-not-always-positive function
 genFalse :: Gen (Valuation -> Double)
 genFalse = oneof [
-  eval <$> arbitrary,
+  --eval <$> arbitrary,
   do
-    poly <- arbitrary
+    val <- genRoot
     -- Assumption: the original was falsifiable
-    return (\xs -> abs (eval poly xs) - 1)]
+    return (\xs -> val xs - 1)]
 
 -- Generate a pair of functions for testing && (one of them should not
 -- always be positive)
@@ -119,14 +128,14 @@ test ops@((_, op0):_) gen = do
   where
     loop counts total = do
       f <- generate gen
-      xs <- generate arbitrary
-      if prop op0 f xs < 0 then do
+      xss <- generate (vector 100)
+      if any (< 0) (map (prop op0 f) xss) then do
         loop counts total
        else do
-        let results = [nelderMead op f xs | (_, op) <- ops]
-        if all (< 0) results || all (>= 0) results then do
-          loop counts total
-         else do
+          let results = [nelderMeads op f (take 10 xss) | (_, op) <- ops]
+        -- if all (< 0) results || all (>= 0) results then do
+        --   loop counts total
+        --  else do
           let
             counts' = zipWith (+) (map fromEnum (map (< 0) results)) counts
             total' = total+1
@@ -145,27 +154,20 @@ test ops@((_, op0):_) gen = do
     percent n k = show (100 * k `div` n) ++ "%"
 
 -- Build a set of VBool operators for variants of ||, given an
--- interpretation for the upper-right quadrant and for the
--- upper-left/lower-right quadrants
-ors :: [(String, Inf -> Inf -> Inf, Inf -> Inf -> Inf)] -> [(String, VBool -> VBool -> VBool)]
+-- interpretation for the upper-right quadrant
+ors :: [(String, Inf -> Inf -> Inf)] -> [(String, VBool -> VBool -> VBool)]
 ors ops =
-  [(name, disjunction op1 op1 op2) | (name, op1, op2) <- ops]
-
--- Same as above but using standard interpretation for
--- upper-left/lower-right quadrants
-ors' :: [(String, Inf -> Inf -> Inf)] -> [(String, VBool -> VBool -> VBool)]
-ors' ops =
-  ors [(name, op, const) | (name, op) <- ops]
+  [(name, disjunction op op) | (name, op) <- ops]
 
 -- Build a set of VBool operators for variants of &&, given an
 -- interpretation for the upper-right quadrant
 ands :: [(String, Inf -> Inf -> Inf)] -> [(String, VBool -> VBool -> VBool)]
 ands ops =
-  [(name, conjunction op op const) | (name, op) <- ops]
+  [(name, conjunction op op) | (name, op) <- ops]
 
 -- Test some variants of ||
 testOrs =
-  test (ors' [("min", minInf), ("max", maxInf), ("plus", plusInf), ("par", parInf), ("dist", distInf)]) genOr
+  test (ors [("min", minInf), ("max", maxInf), ("plus", plusInf), ("par", parInf), ("dist", distInf)]) genOr
 
 -- Test some variants of &&
 testAnds =

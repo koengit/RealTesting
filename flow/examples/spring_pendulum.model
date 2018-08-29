@@ -1,0 +1,33 @@
+continuous reachability
+{
+ state var r, theta, dr, dtheta
+ setting
+ {
+  fixed steps 0.003
+  time 10
+  remainder estimation 1e-10
+  identity precondition
+  gnuplot octagon theta,r
+  adaptive orders { min 6, max 8}
+  cutoff 1e-15
+  precision 512
+  output spring_pendulum_2
+  print on
+ }
+
+ nonpoly ode
+ {
+  r' = dr
+  theta' = dtheta
+  dr' = r*dtheta^2 + 9.8*cos(theta) - 2*(r - 1)
+  dtheta' = (-2*dr*dtheta - 9.8*sin(theta))/r
+ }
+
+ init
+ {
+  r in [1.19,1.21]
+  theta in [0.49,0.51]
+  dr in [0,0]
+  dtheta in [0,0]
+ }
+}

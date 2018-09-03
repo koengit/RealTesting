@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts #-}
-module System where
+module Process where
 
 import Data.Map(Map)
 import qualified Data.Map.Strict as Map
@@ -12,19 +12,10 @@ import Data.Generics.Geniplate -- cabal install geniplate-mirror
 -- * work out how to do resetting of integral
 -- * add a nicer way of generating temporary variables (e.g. for storing integral)
 
--- Input signals have a type
-data Type = RealType | IntegerType deriving (Eq, Show)
-
 data Var =
     Global String
   | Local Int
   deriving (Eq, Ord, Show)
-
-data System =
-  System {
-    inputVars :: Map Var Type, -- input signals
-    process :: Process         -- the code the system executes
-  } deriving Show
 
 -- A process consists of an initialisation step
 -- followed by a loop step that runs repeatedly

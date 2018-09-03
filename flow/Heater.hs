@@ -1,6 +1,6 @@
 module Heater where
 
-import System
+import Process
 import qualified Data.Map as Map
 
 --------------------------------------------------------------------------------
@@ -19,11 +19,8 @@ heaterTemp = Global "heaterTemp"
 pump = Global "pump"
 
 -- the system
-system :: Control -> System
-system control =
-  System {
-    inputVars = Map.singleton goalTemp RealType,
-    process = parP [plant, controller control] }
+system :: Control -> Process
+system control = parP [plant, controller control]
 
 -- the plant
 -- input: pump, output: roomTemp

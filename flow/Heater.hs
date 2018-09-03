@@ -58,17 +58,12 @@ type Control = (Double, Double, Double)
 
 controller :: Control -> Process
 controller (k_p,k_i,k_d) =
-  withIntegral err $ \int ->
-  let
-    pump' = Const k_p * err
-          + Const k_i * int
-  in
-    continuous pump 0 ((pump' `minn` 1) `maxx` 0)
+  continuous pump 0 $ clamp 0 1 $
+      Const k_p * err
+    + Const k_i * IntegralReset err (Bool False)
+    + Const k_d * derivative err
   where
     err   = Var goalTemp - Var roomTemp
-          -- + val k_d * deriv err
-
--- XXX deal with derivatives, resets
 
 -- controlleR :: Control -> S Temp -> S Temp -> S Level
 -- controlleR (k_p,k_i,k_d) goalTemp roomTemp =

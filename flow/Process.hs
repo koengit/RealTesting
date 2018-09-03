@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances #-}
 module Process where
 
 import Data.Map(Map)
@@ -6,11 +6,8 @@ import qualified Data.Map.Strict as Map
 import Data.Set(Set)
 import qualified Data.Set as Set
 import Data.Generics.Geniplate -- cabal install geniplate-mirror
-
--- TO DO:
--- * work out how to deal with derivative in pid controller
--- * work out how to do resetting of integral
--- * add a nicer way of generating temporary variables (e.g. for storing integral)
+import Data.Tuple(swap)
+import Data.Maybe
 
 data Var =
     Global String
@@ -47,10 +44,13 @@ data Expr =
    -- Booleans
  | Not Expr
  | And Expr Expr
- | Tru
+ | Bool Bool
  | Positive Expr -- e >= 0
  | Zero Expr     -- e == 0
- deriving (Eq, Show)
+   -- These operations can be eliminated by calling 'lower'
+ | Old Expr
+ | IntegralReset Expr Expr -- first argument: quantity to integrate; second argument: reset if true
+ deriving (Eq, Ord, Show)
 
 ----------------------------------------------------------------------
 -- free variables of expressions
@@ -58,6 +58,8 @@ data Expr =
 instanceUniverseBi [t| (Expr, Var)|]
 instanceUniverseBi [t| (Step, Var)|]
 instanceUniverseBi [t| (Process, Var)|]
+instanceUniverseBi [t| (Process, Expr)|]
+instanceUniverseBi [t| (Step, Map Var Expr)|]
 instanceTransformBi [t| (Expr, Expr)|]
 instanceTransformBi [t| (Expr, Step)|]
 instanceTransformBi [t| (Expr, Process)|]
@@ -97,85 +99,141 @@ instance Fractional Expr where
   fromRational = Const . fromRational
   recip x = Power x (-1)
 
--- The skip process
-skipP :: Process
-skipP =
+-- Make a simple process
+process :: Step -> Step -> Process
+process start step =
   Process {
     locals = 0,
-    start = skipS,
-    step = skipS }
+    start = start,
+    step = step }
+
+-- The skip process
+skipP :: Process
+skipP = process skipS skipS
 
 skipS :: Step
 skipS = Update Map.empty
 
+-- Updating a variable
+set :: Var -> Expr -> Step
+set x e = Update (Map.singleton x e)
+
 -- Parallel composition of processes
 parP :: [Process] -> Process
-parP = foldr par skipP
+parP = foldr (combine parS2 parS2) skipP
+
+-- Helper function for combining two processes
+combine :: (Step -> Step -> Step) -> (Step -> Step -> Step) -> Process -> Process -> Process
+combine startf stepf p q =
+  Process {
+    locals = locals p + locals q,
+    start = startf (start p') (start q),
+    step = stepf (step p') (step q) }
   where
-    par p q =
-      Process {
-        locals = locals p + locals q,
-        start = parS [start p', start q],
-        step = parS [step p', step q] }
-      where
-        p' = rename shift p
-        shift (Local x) | x < locals p = Local (locals q+x)
-        shift x = x
+    p' = rename shift p
+    shift (Local x) | x < locals p = Local (locals q+x)
+    shift x = x
 
 -- Parallel composition of steps
 parS :: [Step] -> Step
-parS = foldr par skipS
+parS = foldr parS2 skipS
+
+parS2 :: Step -> Step -> Step
+parS2 (If e s1 s2) s3 =
+  If e (parS2 s1 s3) (parS2 s2 s3)
+parS2 (Assume e s1) s2 =
+  Assume e (parS2 s1 s2)
+parS2 (Assert e s1) s2 =
+  Assert e (parS2 s1 s2)
+parS2 (Update m1) (Update m2) =
+  Update (Map.unionWith f m1 m2)
   where
-    par (If e s1 s2) s3 =
-      If e (par s1 s3) (par s2 s3)
-    par (Assume e s1) s2 =
-      Assume e (par s1 s2)
-    par (Assert e s1) s2 =
-      Assert e (par s1 s2)
-    par (Update m1) (Update m2) =
-      update (Map.toList m1 ++ Map.toList m2)
-    par s1@Update{} s2 = par s2 s1
+    f x y
+      | x == y = x
+      | otherwise = error "parS: incoherent state update"
+parS2 s1@Update{} s2 = parS2 s2 s1
 
 -- Local name generation
 name :: (Var -> Process) -> Process
 name f = p{locals = locals p + 1}
   where
-    p = f x
-    x = Local (locals p)
-
--- Build an update step
-update :: [(Var, Expr)] -> Step
-update = Update . Map.fromListWith f
-  where
-    f x y
-      | x == y = x
-      | otherwise = error "parS: incoherent state update"
+    p = f xs
+    xs = Local (locals p)
 
 -- Define a variable whose value changes with every step
 continuous :: Var -> Expr -> Expr -> Process
 continuous x start step =
-  Process {
-    locals = 0,
-    start = update [(x, start)],
-    step = update [(x, step)] }
+  process (set x start) (set x step)
 
-withContinuous :: Expr -> Expr -> (Expr -> Process) -> Process
-withContinuous start step p =
-  name (\x -> parP [continuous x start step, p (Var x)])
+-- Derivative and integral
+derivative :: Expr -> Expr
+derivative e = (e - Old e) / Old Delta
 
--- Define a variable which is the integral of some expression
-integral :: Var -> Expr -> Process
-integral x step =
-  continuous x 0 (Var x + Delta * step)
-
-withIntegral :: Expr -> (Expr -> Process) -> Process
-withIntegral step p =
-  name (\x -> parP [integral x step, p (Var x)])
+integral :: Expr -> Expr
+integral e = IntegralReset e (Bool False)
 
 -- Minimum and maximum
 minn, maxx :: Expr -> Expr -> Expr
 minn = Min
 maxx x y = negate (Min (negate x) (negate y))
+
+-- Clamp a value to a range
+clamp :: Expr -> Expr -> Expr -> Expr
+clamp lo hi x =
+  maxx lo (minn hi x)
+
+-- Choose between two processes. Initial state executes both
+switch :: Expr -> Process -> Process -> Process
+switch cond p1 p2 =
+  combine parS2 (If cond) p1 p2
+
+----------------------------------------------------------------------
+-- lowering operations
+
+lower :: Process -> Process
+lower p =
+  case [(e, f) | e <- universeBi p, f <- maybeToList (lowerExpr e)] of
+    [] -> p
+    ((e, f):_) ->
+      lower $
+        name $ \x ->
+          let y = scavenge x e in
+          parP [replace e (Var y) p, f y]
+  where
+    lowerExpr :: Expr -> Maybe (Var -> Process)
+    lowerExpr (Old e) =
+      Just $ \x -> continuous x 0 e
+    lowerExpr (IntegralReset e reset) =
+      Just $ \x ->
+        switch reset
+          (continuous x 0 0)
+          (continuous x 0 (Var x + Delta * e))
+    lowerExpr _ = Nothing
+
+    replace e1 e2 p =
+      transformBi (\e -> if e == e1 then e2 else e) p
+
+    -- As an optimisation, if an IntegralReset or Old is written
+    -- directly to a variable, don't allocate a new
+    -- variable for it
+    scavenge :: Var -> Expr -> Var
+    scavenge x e = fromMaybe x $ do
+      y <- lookup e (map swap stepGlobals)
+      case lookup y startGlobals of
+        -- The initial value should be 0, undefined or
+        -- equal to the step value
+        Just (Const 0) -> Just y
+        Just e' | e == e' -> Just y
+        Nothing -> Just y
+        _ -> Nothing
+
+    -- Only variables that have the same value in all if-branches
+    -- are candidates for scavenging
+    startGlobals = globals (start p)
+    stepGlobals = globals (step p)
+
+    globals :: Step -> [(Var, Expr)]
+    globals = Map.toList . foldr1 Map.intersection . universeBi
 
 ----------------------------------------------------------------------
 -- evaluation
@@ -214,12 +272,16 @@ eval delta env (Not e) =
   BoolValue (not (bool (eval delta env e)))
 eval delta env (And e1 e2) =
   BoolValue (bool (eval delta env e1) && bool (eval delta env e2))
-eval _ _ Tru =
-  BoolValue True
+eval _ _ (Bool x) =
+  BoolValue x
 eval delta env (Positive e) =
   BoolValue (double (eval delta env e) >= 0)
 eval delta env (Zero e) =
   BoolValue (double (eval delta env e) == 0)
+eval _ _ (Old _) =
+  error "use 'lower' before evaluation"
+eval _ _ (IntegralReset _ _) =
+  error "use 'lower' before evaluation"
 
 data Result = OK | PreconditionFailed Expr | PostconditionFailed Expr
   deriving Show

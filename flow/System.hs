@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts #-}
 module System where
 
 import Data.Map(Map)
@@ -15,7 +15,10 @@ import Data.Generics.Geniplate -- cabal install geniplate-mirror
 -- Input signals have a type
 data Type = RealType | IntegerType deriving (Eq, Show)
 
-newtype Var = V String deriving (Eq, Ord, Show)
+data Var =
+    Global String
+  | Local Int
+  deriving (Eq, Ord, Show)
 
 data System =
   System {
@@ -27,6 +30,7 @@ data System =
 -- followed by a loop step that runs repeatedly
 data Process =
   Process {
+    locals :: Int, -- number of bound variables
     start :: Step, -- initialisation
     step :: Step   -- loop step
   } deriving Show
@@ -62,15 +66,30 @@ data Expr =
 
 instanceUniverseBi [t| (Expr, Var)|]
 instanceUniverseBi [t| (Step, Var)|]
+instanceUniverseBi [t| (Process, Var)|]
+instanceTransformBi [t| (Expr, Expr)|]
+instanceTransformBi [t| (Expr, Step)|]
+instanceTransformBi [t| (Expr, Process)|]
+instanceTransformBi [t| (Var, Expr)|]
+instanceTransformBi [t| (Var, Step)|]
+instanceTransformBi [t| (Var, Process)|]
 
-class Vars a where
+class (UniverseBi a Var, TransformBi Var a) => Vars a where
   vars :: a -> Set Var
-
-instance Vars Expr where
   vars = Set.fromList . universeBi
 
-instance Vars Step where
-  vars = Set.fromList . universeBi
+  rename :: Vars a => (Var -> Var) -> a -> a
+  rename = transformBi
+
+instance Vars Expr
+instance Vars Step
+instance Vars Process
+
+subst :: (Var -> Expr) -> Expr -> Expr
+subst sub = transformBi f
+  where
+    f (Var x) = sub x
+    f x = x
 
 ----------------------------------------------------------------------
 -- simple combinators for building processes
@@ -87,19 +106,34 @@ instance Fractional Expr where
   fromRational = Const . fromRational
   recip x = Power x (-1)
 
+-- The skip process
+skipP :: Process
+skipP =
+  Process {
+    locals = 0,
+    start = skipS,
+    step = skipS }
+
+skipS :: Step
+skipS = Update Map.empty
+
 -- Parallel composition of processes
 parP :: [Process] -> Process
-parP ps =
-  Process {
-    start = parS (map start ps),
-    step = parS (map step ps) }
-
-skip :: Step
-skip = Update Map.empty
+parP = foldr par skipP
+  where
+    par p q =
+      Process {
+        locals = locals p + locals q,
+        start = parS [start p', start q],
+        step = parS [step p', step q] }
+      where
+        p' = rename shift p
+        shift (Local x) | x < locals p = Local (locals q+x)
+        shift x = x
 
 -- Parallel composition of steps
 parS :: [Step] -> Step
-parS = foldr par skip
+parS = foldr par skipS
   where
     par (If e s1 s2) s3 =
       If e (par s1 s3) (par s2 s3)
@@ -110,6 +144,13 @@ parS = foldr par skip
     par (Update m1) (Update m2) =
       update (Map.toList m1 ++ Map.toList m2)
     par s1@Update{} s2 = par s2 s1
+
+-- Local name generation
+name :: (Var -> Process) -> Process
+name f = p{locals = locals p + 1}
+  where
+    p = f x
+    x = Local (locals p)
 
 -- Build an update step
 update :: [(Var, Expr)] -> Step
@@ -123,13 +164,22 @@ update = Update . Map.fromListWith f
 continuous :: Var -> Expr -> Expr -> Process
 continuous x start step =
   Process {
+    locals = 0,
     start = update [(x, start)],
     step = update [(x, step)] }
+
+withContinuous :: Expr -> Expr -> (Expr -> Process) -> Process
+withContinuous start step p =
+  name (\x -> parP [continuous x start step, p (Var x)])
 
 -- Define a variable which is the integral of some expression
 integral :: Var -> Expr -> Process
 integral x step =
   continuous x 0 (Var x + Delta * step)
+
+withIntegral :: Expr -> (Expr -> Process) -> Process
+withIntegral step p =
+  name (\x -> parP [integral x step, p (Var x)])
 
 -- Minimum and maximum
 minn, maxx :: Expr -> Expr -> Expr

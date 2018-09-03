@@ -12,12 +12,11 @@ weigh :: Fractional a => [(a,a)] -> a
 weigh axs = sum [ a*x | (a,x) <- axs ] / sum [ a | (a,_) <- axs ]
 
 -- variables
-goalTemp, roomTemp, heaterTemp, pump, errIntegral :: Var
-goalTemp = V "goalTemp"
-roomTemp = V "roomTemp"
-heaterTemp = V "heaterTemp"
-pump = V "pump"
-errIntegral = V "errIntegral"
+goalTemp, roomTemp, heaterTemp, pump :: Var
+goalTemp = Global "goalTemp"
+roomTemp = Global "roomTemp"
+heaterTemp = Global "heaterTemp"
+pump = Global "pump"
 
 -- the system
 system :: Control -> System
@@ -62,13 +61,15 @@ type Control = (Double, Double, Double)
 
 controller :: Control -> Process
 controller (k_p,k_i,k_d) =
- parP [continuous pump 0 ((pump' `minn` 1) `maxx` 0),
-       integral errIntegral err]
- where
-  err   = Var goalTemp - Var roomTemp
-  pump' = Const k_p * err
-        + Const k_i * Var errIntegral
-        -- + val k_d * deriv err
+  withIntegral err $ \int ->
+  let
+    pump' = Const k_p * err
+          + Const k_i * int
+  in
+    continuous pump 0 ((pump' `minn` 1) `maxx` 0)
+  where
+    err   = Var goalTemp - Var roomTemp
+          -- + val k_d * deriv err
 
 -- XXX deal with derivatives, resets
 

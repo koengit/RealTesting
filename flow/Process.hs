@@ -87,18 +87,7 @@ class Data a => Vars a where
   vars = Set.fromList . universeBi
 
   rename :: (Var -> Var) -> a -> a
-
-instance Vars Expr where
   rename = transformBi
-instance Vars Step where
-  rename f =
-    -- Wow! transformBi pokes into the map's keys and breaks its invariant!
-    transformBi (Map.fromListWith g . Map.toList :: Map Var Expr -> Map Var Expr) .
-    transformBi f
-    where
-      g x y = if x == y then x else error "incoherent renaming"
-instance Vars Process where
-  rename f = both (rename f)
 
 subst :: (Var -> Expr) -> Expr -> Expr
 subst sub = transformBi f

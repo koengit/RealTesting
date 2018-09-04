@@ -241,10 +241,7 @@ switch cond p1 p2 =
 
 -- Do algebraic simplifications and similar
 simplify :: Process -> Process
-simplify =
-  fixpoint $
-    both simplifyStep .
-    eliminateDuplicates
+simplify = fixpoint (both simplifyStep)
 
 simplifyStep :: Step -> Step
 simplifyStep =
@@ -298,32 +295,6 @@ simplifyExpr = fixpoint (transformBi simp)
       where
         (pos, neg) = terms e
     simp e = e
-
-eliminateDuplicates :: Process -> Process
-eliminateDuplicates =
-  fixpoint $ \p ->
-  let
-    equivalent = partitionBy (definition p) (Set.toList (vars p))
-    renaming =
-      Map.fromList
-        [ (y, x)
-        | (x:xs) <- equivalent,
-          y <- xs ]
-  in
-    rename (\x -> Map.findWithDefault x x renaming) p
-
-definition :: Process -> Var -> (Maybe Expr, Maybe Expr)
-definition p x = (def (start p), def (step p))
-  where
-    def (If cond s1 s2) =
-      case (def s1, def s2) of
-        (Nothing, Nothing) -> Nothing
-        (Just e, Nothing)  -> Just e
-        (Nothing, Just e)  -> Just e
-        (Just e1, Just e2) -> Just (Cond cond e1 e2)
-    def (Assume _ s) = def s
-    def (Assert _ s) = def s
-    def (Update m) = Map.lookup x m
 
 -- Given a Boolean expression and its truth value,
 -- replace any other Boolean whose value can now be determined

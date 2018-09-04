@@ -327,6 +327,8 @@ definition p x = (def (start p), def (step p))
 -- replace any other Boolean whose value can now be determined
 -- (e.g. the same Boolean expression appearing elsewhere in the program)
 propagateBool :: Data a => Expr -> Bool -> a -> a
+propagateBool (Not e) val = propagateBool e (not val)
+propagateBool (And e1 e2) True = propagateBool e1 True . propagateBool e2 True
 propagateBool cond val = transformBi (propagate val)
   where
     propagate True e  | implies cond e = Bool True
@@ -344,12 +346,10 @@ propagateBool cond val = transformBi (propagate val)
     implies (Positive e1) (Positive e2)
       | (k, [], []) <- terms' (e2 - e1),
         k >= 0 = True
-    implies (And e1 e2) e3 =
-      implies e1 e3 || implies e2 e3
     implies e1 (And e2 e3) =
       implies e1 e2 && implies e1 e3
-    implies (Not e1) (Not e2) =
-      implies e2 e1
+    implies (And e1 e2) e3 =
+      implies e1 e3 || implies e2 e3
     implies e1 e2 = e1 == e2
 
 -- Eliminate difficult constructs

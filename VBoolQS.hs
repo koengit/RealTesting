@@ -14,62 +14,43 @@ instance Arbitrary Pos where
     NonNegative x <- arbitrary
     return (Pos x)
 
-sig0 =
-  signature {
-    constants = [
-      constant "0" (0 :: Pos),
-      constant "1" (1 :: Pos),
-      constant "+" ((+) :: Pos -> Pos -> Pos),
-      constant "*" ((*) :: Pos -> Pos -> Pos),
-      constant "false" (false :: VBool),
-      constant "true" (true :: VBool),
-      -- constant "double" (double :: VBool -> VBool),
-      -- constant "half" (half :: VBool -> VBool),
-      constant "nt" (nt :: VBool -> VBool)],
-    instances =
-      [baseType (undefined :: VBool),
-       baseType (undefined :: Pos)] }
+sig0 = [
+  con "0" (0 :: Pos),
+  con "1" (1 :: Pos),
+  con "+" ((+) :: Pos -> Pos -> Pos),
+  con "*" ((*) :: Pos -> Pos -> Pos),
+  con "false" (false :: VBool),
+  con "true" (true :: VBool),
+  -- con "double" (double :: VBool -> VBool),
+  -- con "half" (half :: VBool -> VBool),
+  con "nt" (nt :: VBool -> VBool),
+  monoType (Proxy :: Proxy VBool),
+  monoType (Proxy :: Proxy Pos)]
 
-sig1 =
-  signature {
-    constants = [
-      constant "&&+" ((&&+) :: VBool -> VBool -> VBool),
-      constant "||+" ((||+) :: VBool -> VBool -> VBool) ]}
+sig1 = [
+  con "&&+" ((&&+) :: VBool -> VBool -> VBool),
+  con "||+" ((||+) :: VBool -> VBool -> VBool) ]
 
-sig2 =
-  signature {
-    constants = [
-      constant "&&%" ((&&%) :: VBool -> VBool -> VBool),
-      constant "||%" ((||%) :: VBool -> VBool -> VBool) ]}
+signew = [
+  con "&&^" ((&&^) :: VBool -> VBool -> VBool),
+  con "||^" ((||^) :: VBool -> VBool -> VBool) ]
+
+sig2 = [
+  con "&&%" ((&&%) :: VBool -> VBool -> VBool),
+  con "||%" ((||%) :: VBool -> VBool -> VBool) ]
 
 sig3 =
-  signature {
-    constants = [
-      constant "#+" (\x (Pos y) -> x #+ y) ]}
+  con "#+" (\x (Pos y) -> x #+ y)
           
 sig4 =
-  signature {
-    constants = [
-      constant "#" (\x (Pos y) -> x # y) ]}
+  con "#" (\x (Pos y) -> x # y)
           
 main = do
-  putStrLn "-- Background --"
-  thy0 <- quickSpec sig0
+  --putStrLn "-- Background --"
+  --quickSpec sig0
 
-  putStrLn "-- Additive &&/|| --"
-  thy1 <- quickSpec (thy0 `mappend` sig1)
+  --putStrLn "-- Additive &&/|| --"
+  --quickSpec [background sig0, signature sig1]
 
-  putStrLn "-- Min/max &&/|| --"
-  thy2 <- quickSpec (thy0 `mappend` sig2)
-
-  putStrLn "-- Both &&/|| --"
-  thy <- quickSpec (thy1 `mappend` thy2)
-
-  putStrLn "-- Additive # --"
-  thy3 <- quickSpec (thy `mappend` sig3)
-
-  putStrLn "-- Multiplicative # --"
-  thy4 <- quickSpec (thy `mappend` sig4)
-
-  putStrLn "-- Everything --"
-  quickSpec (thy3 `mappend` thy4)
+  putStrLn "-- sqrt &&/|| --"
+  quickSpec (series [sig0, signew, [sig4]])

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, UndecidableInstances, TypeSynonymInstances, FlexibleInstances, DataKinds #-}
+{-# LANGUAGE FlexibleContexts, UndecidableInstances, TypeSynonymInstances, FlexibleInstances, DataKinds, DeriveGeneric, DeriveAnyClass #-}
 module VBool where
 
 import Badness
@@ -6,6 +6,7 @@ import Test.QuickCheck
 import Data.List
 import Data.Reflection
 import Data.Ord
+import GHC.Generics
 
 infix  4 ==%
 infixr 3 &&%, &&+, &&^
@@ -33,7 +34,7 @@ instance Arbitrary VBool where
 
 -- A nonzero real number which can also be infinite.
 data Inf = Finite Double | Infinite
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic, CoArbitrary)
 
 plusInf :: Inf -> Inf -> Inf
 plusInf (Finite x) (Finite y) = Finite (x+y)

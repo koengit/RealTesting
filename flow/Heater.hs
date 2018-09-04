@@ -22,6 +22,9 @@ pump = Global "pump"
 system :: Control -> Process
 system control = plant & controller control
 
+systeM :: Control -> Process
+systeM control = plant & controlleR control
+
 -- the plant
 -- input: pump, output: roomTemp
 
@@ -63,18 +66,18 @@ controller (k_p,k_i,k_d) =
     + Const k_i * integral err
     + Const k_d * Deriv err
   where
-    err   = Var goalTemp - Var roomTemp
+    err = Var goalTemp - Var roomTemp
 
--- controlleR :: Control -> S Temp -> S Temp -> S Level
--- controlleR (k_p,k_i,k_d) goalTemp roomTemp =
---   (pump' >=? 0) ? ((1 >=? pump') ? (pump', 1), 0)
---  where
---   err   = goalTemp - roomTemp
---   pump' = val k_p * err
---         + val k_i * integ (err `in1t` 0 `reset` (0 `when` changeGoalTemp))
---         + val k_d * deriv err
+controlleR :: Control -> Process
+controlleR (k_p,k_i,k_d) =
+  continuous pump 0 $ clamp 0 1 $
+      Const k_p * err
+    + Const k_i * IntegralReset err changeGoalTemp
+    + Const k_d * Deriv err
+ where
+  err = Var goalTemp - Var roomTemp
 
---   changeGoalTemp = abs (goalTemp - pre goalTemp) >? 1
+  changeGoalTemp = abs (Var goalTemp - Old (Var goalTemp)) /=? 1
 
 cgood :: Control
 --cgood = (3.997591176733649e-3,8.194771741046325e-5,5.618398605936785e-3)

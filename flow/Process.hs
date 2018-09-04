@@ -121,6 +121,10 @@ subst sub = transformBi f
     f (Var x) = sub x
     f x = x
 
+replace :: TransformBi Expr a => Expr -> Expr -> a -> a
+replace e1 e2 p =
+  transformBi (\e -> if e == e1 then e2 else e) p
+
 ----------------------------------------------------------------------
 -- Helper functions for the implementation
 ----------------------------------------------------------------------
@@ -153,8 +157,8 @@ instance Num Expr where
   x + y = Plus x y
   x * y = Times x y
   negate x = Negate x
-  abs = error "Expr: abs not supported"
-  signum = error "Expr: signum not supported"
+  abs x = Cond (x >=? 0) x (negate x)
+  signum x = Cond (x ==? 0) 0 (Cond (x >=? 0) 1 (-1))
 
 instance Fractional Expr where
   fromRational = Const . fromRational
@@ -223,8 +227,10 @@ integral :: Expr -> Expr
 integral e = IntegralReset e (Bool False)
 
 -- Comparisons
+infix 4 ==?, >=?, <=?, /=?
 (==?), (>=?), (<=?) :: Expr -> Expr -> Expr
 x ==? y = Zero (x-y)
+x /=? y = Not (x ==? y)
 x >=? y = Positive (x-y)
 x <=? y = y >=? x
 
@@ -246,11 +252,23 @@ switch cond p1 p2 =
 simplify :: Process -> Process
 simplify =
   fixpoint $
-    both (transformBi simpStep . transformBi simplifyExpr) .
+    both simplifyStep .
     eliminateDuplicates
+
+simplifyStep :: Step -> Step
+simplifyStep =
+  fixpoint $
+    transformBi simpStep .
+    transformBi simplifyExpr
   where
+    simpStep (If (Not e) s1 s2) = If e s2 s1
     simpStep (If (Bool True) e _) = e
     simpStep (If (Bool False) _ e) = e
+    simpStep (If e s s') | s == s' = s
+    simpStep (If e s1 s2) =
+      If e
+        (propagateBool e True s1)
+        (propagateBool e False s2)
     simpStep (Assume (Bool True) s) = s
     simpStep (Assert (Bool True) s) = s
     simpStep s = s
@@ -262,17 +280,16 @@ simplifyExpr = fixpoint (transformBi simp)
     simp (Old e) | Just x <- evalM Nothing Map.empty e = constant x
     simp (Cond (Bool True) e _) = e
     simp (Cond (Bool False) _ e) = e
+    simp (Cond _ e e') | e == e' = e
+    simp (Cond cond e1 e2) =
+      Cond cond (propagateBool cond True e1) (propagateBool cond False e2)
+      
     simp (Times (Const x) (Plus y z)) = Plus (Times (Const x) y) (Times (Const x) z)
     simp e@Plus{} =
       case terms e of
-        (pos, neg)
-          | null pos' && null neg' -> Const 0
-          | otherwise ->
-            foldr1 Plus (pos' ++ map Negate neg')
-          where
-            -- Remove common terms
-            pos' = pos \\ neg
-            neg' = neg \\ pos
+        ([], []) -> Const 0
+        (pos, neg) ->
+          foldr1 Plus (pos ++ map Negate neg)
     simp e@Times{} =
       case factors e of
         (0, _) -> Const 0
@@ -284,6 +301,11 @@ simplifyExpr = fixpoint (transformBi simp)
           -- Multiply with abs k only if necessary
           (if abs k == 1 then id else Times (Const (abs k))) $
           foldr1 Times es
+    simp (Zero e)
+      -- Sort u = t to t = u
+      | neg > pos = Zero (Negate e)
+      where
+        (pos, neg) = terms e
     simp e = e
 
 eliminateDuplicates :: Process -> Process
@@ -311,6 +333,29 @@ definition p x = (def (start p), def (step p))
     def (Assume _ s) = def s
     def (Assert _ s) = def s
     def (Update m) = Map.lookup x m
+
+-- Given a Boolean expression and its truth value,
+-- replace any other Boolean whose value can now be determined
+-- (e.g. the same Boolean expression appearing elsewhere in the program)
+propagateBool :: TransformBi Expr a => Expr -> Bool -> a -> a
+propagateBool cond val = transformBi (propagate val)
+  where
+    propagate True e  | implies cond e = Bool True
+    propagate False e | implies e cond = Bool False
+    propagate _ e = e
+
+    -- This is pretty crappy but helps with abs somewhat
+    -- (no need for Zero/Zero case because simplify will normalise)
+    implies (Zero e1) (Positive e2)
+      | (k, [], []) <- terms' (e2 - e1),
+        k >= 0 = True
+    implies (Zero e1) (Positive e2)
+      | (k, [], []) <- terms' (e2 + e1),
+        k >= 0 = True
+    implies (Positive e1) (Positive e2)
+      | (k, [], []) <- terms' (e2 - e1),
+        k >= 0 = True
+    implies e1 e2 = e1 == e2
 
 -- Eliminate difficult constructs
 lower :: Process -> Process
@@ -360,26 +405,21 @@ eliminateState =
          e')
     lowerExpr _ = Nothing
 
-    replace e1 e2 p =
-      transformBi (\e -> if e == e1 then e2 else e) p
-
 eliminateCond :: Process -> Process
-eliminateCond =
-  fixpoint $ both $ \s ->
-    case [cond | Cond cond _ _ <- universeBi s] of
-      [] -> s
-      (cond:_) ->
-        If cond
-        (transformBi (elimCond cond True) s)
-        (transformBi (elimCond cond False) s)
+eliminateCond = fixpoint (both (transformBi f . simplifyStep))
   where
-    chooseCond cond True (Cond cond' e _) | cond == cond' = e
-    chooseCond cond False (Cond cond' _ e) | cond == cond' = e
-    chooseCond _ _ e = e
-
-    elimCond cond True (If cond' s _) | cond == cond' = s
-    elimCond cond False (If cond' _ s) | cond == cond' = s
-    elimCond cond val s = transformBi (chooseCond cond val) s
+    -- Idea: replace
+    --   ... Cond cond e1 e2 ...
+    -- with
+    --   if cond then [... Cond cond e1 e2 ...] else [... Cond cond e1 e2 ...]
+    -- and then use propagateBool to get rid of the Cond in each branch
+    f s =
+      case [cond | Cond cond _ _ <- universeBi s] of
+        [] -> s
+        (cond:_) ->
+          If cond
+            (propagateBool cond True s)
+            (propagateBool cond False s)
 
 eliminateMinMax :: Process -> Process
 eliminateMinMax = transformBi f
@@ -405,15 +445,19 @@ terms e
 
 -- Separates a sum into positive and negative parts and a constant
 terms' :: Expr -> (Double, [Expr], [Expr])
-terms' (Plus e1 e2) = (k1 + k2, pos1 ++ pos2, neg1 ++ neg2)
+terms' e = (k, pos \\ neg, neg \\ pos) -- remove common terms
   where
-    (k1, pos1, neg1) = terms' e1
-    (k2, pos2, neg2) = terms' e2
-terms' (Negate e) = (-k, neg, pos)
-  where
-    (k, pos, neg) = terms' e
-terms' (Const x) = (x, [], [])
-terms' e = (0, [e], [])
+    (k, pos, neg) = go e
+
+    go (Plus e1 e2) = (k1 + k2, pos1 ++ pos2, neg1 ++ neg2)
+      where
+        (k1, pos1, neg1) = go e1
+        (k2, pos2, neg2) = go e2
+    go (Negate e) = (-k, neg, pos)
+      where
+        (k, pos, neg) = go e
+    go (Const x) = (x, [], [])
+    go e = (0, [e], [])
 
 -- Separates a product into constant and non-constant parts
 factors :: Expr -> (Double, [Expr])
@@ -615,7 +659,7 @@ ppExp n (Plus e1 e2) =
         Plus (Negate e3) e4 ->
           text "-" <+> ppExp 4 (Plus e3 e4)
         _ ->
-          ppExp 4 e2]
+          text "+" <+> ppExp 4 e2]
 ppExp n (Times e1 e2) =
   ppAssoc n "*" 6 e1 e2
 ppExp n (Power e (Const (-1))) =
@@ -626,15 +670,15 @@ ppExp n (Power e1 e2) =
 ppExp n (Negate e) = ppUnary n "-" 5 e
 ppExp _ (Sin e) = ppFunction "sin" [e]
 ppExp n (Not e) = ppUnary n "not " 2 e
-ppExp n (And e1 e2) = ppAssoc n " and " 1 e1 e2
+ppExp n (And e1 e2) = ppAssoc n "and" 1 e1 e2
 ppExp _ (Bool True) = text "true"
 ppExp _ (Bool False) = text "false"
 ppExp n (Positive e) =
-  ppAssoc n " >= " 3 (ppSum pos) (ppSum neg)
+  ppAssoc n ">=" 3 (ppSum pos) (ppSum neg)
   where
     (pos, neg) = terms e
 ppExp n (Zero e) =
-  ppAssoc n " = " 3 (ppSum pos) (ppSum neg)
+  ppAssoc n "=" 3 (ppSum pos) (ppSum neg)
   where
     (pos, neg) = terms e
 ppExp n (Cond e1 e2 e3) =
@@ -673,7 +717,7 @@ ppAssoc n op p e1 e2 =
 
 ppSum :: [Expr] -> Expr
 ppSum [] = Const 0
-ppSum xs = sum xs
+ppSum xs = foldr1 (+) xs
 
 ppIfThenElse :: Doc -> Doc -> Doc -> Doc
 ppIfThenElse x y z =

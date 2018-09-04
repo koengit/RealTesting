@@ -500,17 +500,6 @@ eliminateDeriv = transformBi f
     f (Deriv e) = (e - Old e) / Old Delta
     f e = e
 
-definition :: Process -> Var -> (Maybe Expr, Maybe Expr)
-definition p x = (definitionS (start p) x, definitionS (step p) x)
-
-definitionS :: Step -> Var -> Maybe Expr
-definitionS (If cond s1 s2) x =
-  case (definitionS s1 x, definitionS s2 x) of
-    (Nothing, Nothing) -> Nothing
-    (Just e, Nothing)  -> Just e
-    (Nothing, Just e)  -> Just e
-    (Just e1, Just e2) -> Just (Cond cond e1 e2)
-
 ----------------------------------------------------------------------
 -- evaluation
 

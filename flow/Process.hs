@@ -15,6 +15,7 @@ import qualified Text.PrettyPrint.HughesPJClass
 import Text.Printf
 import Utils
 import Data.Data
+import Control.Monad
 
 ----------------------------------------------------------------------
 -- Processes
@@ -271,7 +272,18 @@ simplifyExpr = fixpoint (transformBi simp)
     simp (Cond _ e e') | e == e' = e
     simp (Cond cond e1 e2) =
       Cond cond (propagateBool cond True e1) (propagateBool cond False e2)
-      
+
+    simp (Not (Not e)) = e
+    simp e@And{} =
+      case conjuncts e of
+        Nothing -> Bool False
+        Just ([], []) -> Bool True
+        Just (pos, neg) ->
+          foldr1 and' (pos ++ map Not neg)
+      where
+        and' e1 e2 =
+          And e1 (propagateBool e1 True e2)
+          
     simp (Times (Const x) (Plus y z)) = Plus (Times (Const x) y) (Times (Const x) z)
     simp e@Plus{} =
       case terms e of
@@ -380,7 +392,8 @@ eliminateState =
     lowerExpr _ = Nothing
 
 eliminateCond :: Process -> Process
-eliminateCond = fixpoint (both (transformBi f . simplifyStep))
+eliminateCond =
+  fixpoint (both (transformBi f . transformBi introBool . simplifyStep))
   where
     -- Idea: replace
     --   ... Cond cond e1 e2 ...
@@ -388,13 +401,37 @@ eliminateCond = fixpoint (both (transformBi f . simplifyStep))
     --   if cond then [... Cond cond e1 e2 ...] else [... Cond cond e1 e2 ...]
     -- and then use propagateBool to get rid of the Cond in each branch
     f s =
-      case [cond | Cond cond _ _ <- map norm (exprs s)] of
+      case findConds s of
         [] -> s
-        (cond:_) ->
+        (cond, _, _):_ ->
           If cond
             (propagateBool cond True s)
             (propagateBool cond False s)
-    -- Move Old inside Cond for the benefit of f
+    -- If Cond is the argument to a predicate (And, Not, Zero, Positive),
+    -- encode it using Boolean connectives:
+    --   P(Cond e1 e2 e3) = (e1 && P(e2)) || (not e1 && P(e3))
+    introBool (And e1 e2) =
+      fromMaybe (And e1 e2) $
+        applyCond (And e1) e2 `mplus`
+        applyCond (flip And e2) e1
+    introBool (Not e) =
+      fromMaybe (Not e) $ applyCond Not e
+    introBool (Zero e) =
+      fromMaybe (Zero e) $ applyCond Zero e
+    introBool (Positive e) =
+      fromMaybe (Positive e) $ applyCond Positive e
+    introBool e = e
+    
+    applyCond p e =
+      case findConds e of
+        [] -> Nothing
+        (e1, e2, e3):_ ->
+          Just $ orr
+            (And e1 (propagateBool e1 True (p e2)))
+            (And (Not e1) (propagateBool e1 False (p e3)))
+
+    findConds e =
+      [(e1, e2, e3) | Cond e1 e2 e3 <- map norm (exprs e)]
     norm (Old e)
       | Cond e1 e2 e3 <- norm e =
         Cond (Old e1) (Old e2) (Old e3)
@@ -449,6 +486,23 @@ factors (Negate e) = (negate k, xs)
     (k, xs) = factors e
 factors (Const x) = (x, [])
 factors e = (1, [e])
+
+-- Separates a conjunction into its conjuncts.
+-- Returns Nothing if contradictory.
+conjuncts :: Expr -> Maybe ([Expr], [Expr])
+conjuncts e = do
+  (pos, neg) <- conj e
+  guard (null (intersect pos neg))
+  return (usort pos, usort neg)
+  where
+    conj (And e1 e2) = do
+      (pos1, neg1) <- conj e1
+      (pos2, neg2) <- conj e2
+      return (pos1 ++ pos2, neg1 ++ neg2)
+    conj (Not e) = return ([], [e])
+    conj (Bool True) = return ([], [])
+    conj (Bool False) = Nothing
+    conj e = return ([e], [])
 
 ----------------------------------------------------------------------
 -- Evaluation

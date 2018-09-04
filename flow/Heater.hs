@@ -83,3 +83,6 @@ cgood :: Control
 --cgood = (3.997591176733649e-3,8.194771741046325e-5,5.618398605936785e-3)
 --cgood = (5.0e-3,1.1446889636416996e-4,5.0e-3)
 cgood = (1.2e-2,1.1446889636416996e-4,5.0e-3)
+
+test = last $ fst $ simulate 1 (replicate 1000 (Map.singleton goalTemp (DoubleValue 25))) (system cgood)
+tesT = last $ fst $ simulate 1 (replicate 1000 (Map.singleton goalTemp (DoubleValue 25))) (systeM cgood)

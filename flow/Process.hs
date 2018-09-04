@@ -108,6 +108,10 @@ process start step =
     start = start,
     step = step }
 
+initially, repeatedly :: Step -> Process
+initially start = process start skipS
+repeatedly step = process skipS step
+
 -- The skip process
 skipP :: Process
 skipP = process skipS skipS

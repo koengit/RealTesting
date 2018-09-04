@@ -702,8 +702,13 @@ ppExp n (Power e1 e2) =
     cat [ppExp 8 e1 <#> text "^", nest 2 (ppExp 8 e2)]
 ppExp n (Negate e) = ppUnary n "-" 5 e
 ppExp _ (Sin e) = ppFunction "sin" [e]
+ppExp n (Not (And e1 e2)) =
+  ppNonAssoc n "or" 1 (neg e1) (neg e2)
+  where
+    neg (Not x) = x
+    neg x = Not x
 ppExp n (Not e) = ppUnary n "not " 2 e
-ppExp n (And e1 e2) = ppAssoc n "and" 1 e1 e2
+ppExp n (And e1 e2) = ppNonAssoc n "and" 1 e1 e2
 ppExp _ (Bool True) = text "true"
 ppExp _ (Bool False) = text "false"
 ppExp n (Positive e) =
@@ -747,6 +752,11 @@ ppAssoc :: Rational -> String -> Rational -> Expr -> Expr -> Doc
 ppAssoc n op p e1 e2 =
   maybeParens (n > p) $
     sep [ppExp p e1, text op <+> ppExp p e2]
+
+ppNonAssoc :: Rational -> String -> Rational -> Expr -> Expr -> Doc
+ppNonAssoc n op p e1 e2 =
+  maybeParens (n > p) $
+    sep [ppExp (p+1) e1, text op <+> ppExp (p+1) e2]
 
 ppSum :: [Expr] -> Expr
 ppSum [] = Const 0

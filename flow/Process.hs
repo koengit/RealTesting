@@ -13,22 +13,11 @@ import Data.List
 import Text.PrettyPrint.HughesPJClass hiding ((<>), double)
 import qualified Text.PrettyPrint.HughesPJClass
 import Text.Printf
+import Utils
 
-infixl 6 <#>
-(<#>) :: Doc -> Doc -> Doc
-(<#>) = (Text.PrettyPrint.HughesPJClass.<>)
-
-data Var =
-    Global String
-  | Local Int
-  deriving (Eq, Ord)
-
-instance Show Var where
-  show = show . pPrint
-
-instance Pretty Var where
-  pPrint (Global x) = text x
-  pPrint (Local n) = text "x" <> pPrint n
+----------------------------------------------------------------------
+-- Processes
+----------------------------------------------------------------------
 
 -- A process consists of an initialisation step
 -- followed by a loop step that runs repeatedly
@@ -39,14 +28,6 @@ data Process =
     step :: Step   -- loop step
   } deriving Eq
 
-instance Show Process where
-  show = show . pPrint
-
-instance Pretty Process where
-  pPrint p =
-    hang (text "start") 2 (pPrint (start p)) $$
-    hang (text "step") 2 (pPrint (step p))
-
 data Step =
    If Expr Step Step     -- if-then-else
  | Assume Expr Step      -- check precondition
@@ -54,34 +35,11 @@ data Step =
  | Update (Map Var Expr) -- update variables
  deriving Eq
 
-instance Show Step where
-  show = show . pPrint
-
-instance Pretty Step where
-  pPrint (If e s1 s2) =
-    ppIfThenElse (pPrint e) (pPrint s1) (pPrint s2)
-  pPrint (Assume e s) =
-    hang (text "assume") 2 (pPrint e) $$
-    pPrint s
-  pPrint (Assert e s) =
-    hang (text "e") 2 (pPrint e) $$
-    pPrint s
-  pPrint (Update m) =
-    vcat
-      [ hang (pPrint x <+> text "<-") 2 (pPrint e)
-      | (x, e) <- Map.toList m ]
-
-ppIfThenElse :: Doc -> Doc -> Doc -> Doc
-ppIfThenElse x y z =
-  sep [
-    sep [sep [text "if", nest 2 x, text "then"], nest 2 y, text "else"],
-      nest 2 z]
-
 data Expr =
-   Const Double -- constant
- | Var Var -- variable
- | Delta   -- delta-t
+   Var Var      -- variable
+ | Delta        -- delta-t
    -- Arithmetic
+ | Const Double -- constant
  | Plus Expr Expr
  | Times Expr Expr
  | Power Expr Expr
@@ -97,126 +55,31 @@ data Expr =
  | Cond Expr Expr Expr
  | Min Expr Expr
  | Max Expr Expr
- | Old Expr
+ | Old Expr                -- previous value of expression
  | IntegralReset Expr Expr -- first argument: quantity to integrate; second argument: reset if true
  | Deriv Expr
  deriving (Eq, Ord)
 
+data Var =
+    Global String
+  | Local Int
+  deriving (Eq, Ord)
+
+instance Show Process where
+  show = show . pPrint
+
+instance Show Step where
+  show = show . pPrint
+
 instance Show Expr where
   show = show . pPrint
 
-instance Pretty Expr where
-  pPrintPrec _ p = ppExp p
-
-instance Pretty Doc where
-  pPrint = id
-
--- Precedence levels:
--- 0: no brackets
--- 1: and (associative)
--- 2: not
--- 3: positive/zero, min/max (whose arguments get precedence 9)
--- 4: plus (associative)
--- 5: negate
--- 6: times (associative)
--- 7: power (non-associative)
--- 8: sin
--- 9: atomic
-ppExp :: Rational -> Expr -> Doc
-ppExp _ (Var x) = pPrint x
-ppExp _ Delta = text "dt"
-ppExp _ (Const x) = text (shortest (show x) (printf "%.5f" x))
-  where
-    shortest x y
-      | length x <= length y = x
-      | otherwise = y
-ppExp n e@Plus{}
-  | null neg =
-    maybeParens (n > 4) $
-      foldr1 (assoc 0 " + " 4) (map (ppExp 4) pos)
-  | otherwise =
-    maybeParens (n > 4) $
-      foldr (assoc 0 " + " 4) (foldr1 (assoc 0 " - " 4) (map (ppExp 4) neg)) pos
-  where
-    (pos, neg) = terms e
-ppExp n (Times e1 e2) = assoc n " * " 6 e1 e2
-ppExp n (Power e (Const (-1))) = unary n "1/" 7 e
-ppExp n (Power e1 e2) = nonassoc n "^" 7 e1 e2
-ppExp n (Negate e) = unary n "-" 5 e
-ppExp n (Sin e) = unary n "sin " 8 e
-ppExp n (Not e) = unary n "not " 2 e
-ppExp n (And e1 e2) = assoc n " and " 1 e1 e2
-ppExp _ (Bool True) = text "true"
-ppExp _ (Bool False) = text "false"
-ppExp n (Positive e) =
-  assoc n " >= " 3 (plus pos) (plus neg)
-  where
-    (pos, neg) = terms e
-ppExp n (Zero e) =
-  assoc n " = " 3 (plus pos) (plus neg)
-  where
-    (pos, neg) = terms e
-ppExp n (Cond e1 e2 e3) =
-  maybeParens (n > 0) $
-    -- else-branch must be atomic to avoid ambiguity
-    ppIfThenElse (ppExp 0 e1) (ppExp 0 e2) (ppExp 9 e3)
-ppExp n (Min e1 e2) =
-  maybeParens (n > 3) $
-    hang (ppExp 9 e1 <+> text "min") 2 (ppExp 9 e2)
-ppExp n (Max e1 e2) =
-  maybeParens (n > 3) $
-    hang (ppExp 9 e1 <+> text "max") 2 (ppExp 9 e2)
-ppExp n (Old e) =
-  maybeParens (n > 9) $
-    hang (text "old") 2 (ppExp 9 e)
-ppExp n (IntegralReset e (Bool False)) =
-  maybeParens (n > 9) $
-    hang (text "integral") 2 (ppExp 9 e)
-ppExp n (IntegralReset e reset) =
-  maybeParens (n > 0) $
-    sep [
-      hang (text "integral") 2 (ppExp 9 e),
-      hang (text "reset") 2 (ppExp 9 reset)]
-ppExp n (Deriv e) =
-  maybeParens (n > 9) $
-    hang (text "deriv") 2 (ppExp 9 e)
-
-plus :: [Expr] -> Expr
-plus [] = Const 0
-plus xs = foldr1 Plus xs
-
-terms :: Expr -> ([Expr], [Expr])
-terms (Plus e1 e2) = (pos1 ++ pos2, neg1 ++ neg2)
-  where
-    (pos1, neg1) = terms e1
-    (pos2, neg2) = terms e2
-terms (Negate e) = swap (terms e)
-terms (Const x)
-  | x >= 0 = ([Const x], [])
-  | otherwise = ([], [Const (negate x)])
-terms e = ([e], [])
-
-unary :: Pretty a => Rational -> String -> Rational -> a -> Doc
-unary n name p e =
-  maybeParens (n > p) $
-    text name <> pPrintPrec prettyNormal (p+1) e
-
-assoc :: (Pretty a, Pretty b) => Rational -> String -> Rational -> a -> b -> Doc
-assoc n name p e1 e2 =
-  maybeParens (n > p) $
-    cat [
-      pPrintPrec prettyNormal p e1 <> text name,
-      pPrintPrec prettyNormal p e2]
-
-nonassoc :: (Pretty a, Pretty b) => Rational -> String -> Rational -> a -> b -> Doc
-nonassoc n name p e1 e2 =
-  maybeParens (n > p) $
-    cat [
-      pPrintPrec prettyNormal (p+1) e1 <> text name,
-      pPrintPrec prettyNormal (p+1) e2]
+instance Show Var where
+  show = show . pPrint
 
 ----------------------------------------------------------------------
--- free variables of expressions
+-- Free variables, renaming and substitutions
+----------------------------------------------------------------------
 
 instanceUniverseBi [t| (Expr, Var)|]
 instanceUniverseBi [t| (Step, Var)|]
@@ -232,17 +95,25 @@ instanceTransformBi [t| (Var, Expr)|]
 instanceTransformBi [t| (Var, Step)|]
 instanceTransformBi [t| (Var, Process)|]
 instanceTransformBi [t| (Step, Step)|]
+instanceTransformBi [t| (Map Var Expr, Step)|]
 
 class (UniverseBi a Var, TransformBi Var a) => Vars a where
   vars :: a -> Set Var
   vars = Set.fromList . universeBi
 
-  rename :: Vars a => (Var -> Var) -> a -> a
-  rename = transformBi
+  rename :: (Var -> Var) -> a -> a
 
-instance Vars Expr
-instance Vars Step
-instance Vars Process
+instance Vars Expr where
+  rename = transformBi
+instance Vars Step where
+  rename f =
+    -- Wow! transformBi pokes into the map's keys and breaks its invariant!
+    transformBi (Map.fromListWith g . Map.toList :: Map Var Expr -> Map Var Expr) .
+    transformBi f
+    where
+      g x y = if x == y then x else error "incoherent renaming"
+instance Vars Process where
+  rename f = both (rename f)
 
 subst :: (Var -> Expr) -> Expr -> Expr
 subst sub = transformBi f
@@ -251,7 +122,31 @@ subst sub = transformBi f
     f x = x
 
 ----------------------------------------------------------------------
--- simple combinators for building processes
+-- Helper functions for the implementation
+----------------------------------------------------------------------
+
+-- Combine two processes
+combine :: (Step -> Step -> Step) -> (Step -> Step -> Step) -> Process -> Process -> Process
+combine startf stepf p q =
+  Process {
+    locals = locals p + locals q,
+    start = startf (start p') (start q),
+    step = stepf (step p') (step q) }
+  where
+    -- Shift p's locals so as not to clash with q
+    -- (shifting p rather than q makes foldr combine take linear time)
+    p' = rename shift p
+    -- The guard here is necessary for the 'name' function to work
+    shift (Local x) | x < locals p = Local (locals q+x)
+    shift x = x
+
+-- Map a function over steps
+both :: (Step -> Step) -> Process -> Process
+both f p = p { start = f (start p), step = f (step p) }
+
+----------------------------------------------------------------------
+-- Simple combinators for building processes
+----------------------------------------------------------------------
 
 instance Num Expr where
   fromInteger = Const . fromInteger
@@ -273,60 +168,45 @@ process start step =
     start = start,
     step = step }
 
-initially, repeatedly :: Step -> Process
-initially start = process start skipS
-repeatedly step = process skipS step
+-- A typeclass for things that can be executed in parallel
+class Par a where
+  -- A process that does nothing
+  skip :: a
+  -- Execute two processes in parallel
+  (&) :: a -> a -> a
 
--- The skip process
-skipP :: Process
-skipP = process skipS skipS
+infixr 5 &
 
-skipS :: Step
-skipS = Update Map.empty
+-- Execute many processes in parallel
+par :: Par a => [a] -> a
+par = foldr (&) skip
 
--- Updating a variable
+instance Par Step where
+  skip = Update Map.empty
+
+  If e s1 s2 & s3 =
+    If e (s1 & s3) (s2 & s3)
+  Assume e s1 & s2 =
+    Assume e (s1 & s2)
+  Assert e s1 & s2 =
+    Assert e (s1 & s2)
+  Update m1 & Update m2 =
+    Update (Map.unionWith f m1 m2)
+    where
+      f x y
+        | x == y = x
+        | otherwise = error "Step.&: incoherent state update"
+  s1@Update{} & s2 = s2 & s1
+
+instance Par Process where
+  skip = process skip skip
+  (&) = combine (&) (&)
+
+-- Update a variable
 set :: Var -> Expr -> Step
 set x e = Update (Map.singleton x e)
 
--- Parallel composition of processes
-parP :: [Process] -> Process
-parP = foldr (combine parS2 parS2) skipP
-
-both :: (Step -> Step) -> Process -> Process
-both f p = p { start = f (start p), step = f (step p) }
-
--- Helper function for combining two processes
-combine :: (Step -> Step -> Step) -> (Step -> Step -> Step) -> Process -> Process -> Process
-combine startf stepf p q =
-  Process {
-    locals = locals p + locals q,
-    start = startf (start p') (start q),
-    step = stepf (step p') (step q) }
-  where
-    p' = rename shift p
-    shift (Local x) | x < locals p = Local (locals q+x)
-    shift x = x
-
--- Parallel composition of steps
-parS :: [Step] -> Step
-parS = foldr parS2 skipS
-
-parS2 :: Step -> Step -> Step
-parS2 (If e s1 s2) s3 =
-  If e (parS2 s1 s3) (parS2 s2 s3)
-parS2 (Assume e s1) s2 =
-  Assume e (parS2 s1 s2)
-parS2 (Assert e s1) s2 =
-  Assert e (parS2 s1 s2)
-parS2 (Update m1) (Update m2) =
-  Update (Map.unionWith f m1 m2)
-  where
-    f x y
-      | x == y = x
-      | otherwise = error "parS: incoherent state update"
-parS2 s1@Update{} s2 = parS2 s2 s1
-
--- Local name generation
+-- Generate a local name
 name :: (Var -> Process) -> Process
 name f = p{locals = locals p + 1}
   where
@@ -356,26 +236,18 @@ clamp lo hi x =
 -- Choose between two processes. Initial state executes both
 switch :: Expr -> Process -> Process -> Process
 switch cond p1 p2 =
-  combine parS2 (If cond) p1 p2
+  combine (&) (If cond) p1 p2
 
 ----------------------------------------------------------------------
--- lowering operations
+-- Simplifying processes and eliminating difficult constructs
+----------------------------------------------------------------------
 
-fixpoint :: Eq a => (a -> a) -> a -> a
-fixpoint f x
-  | x == y = x
-  | otherwise = fixpoint f y
-  where
-    y = f x
-
+-- Do algebraic simplifications and similar
 simplify :: Process -> Process
-simplify p = both simplifyS p
-
-simplifyS :: Step -> Step
-simplifyS =
+simplify =
   fixpoint $
-    transformBi simpStep .
-    transformBi simpExpr
+    both (transformBi simpStep . transformBi simplifyExpr) .
+    eliminateDuplicates
   where
     simpStep (If (Bool True) e _) = e
     simpStep (If (Bool False) _ e) = e
@@ -383,85 +255,108 @@ simplifyS =
     simpStep (Assert (Bool True) s) = s
     simpStep s = s
 
-    simpExpr e | Just x <- constantValue e = constant x
-    simpExpr (Old e) | Just x <- constantValue e = constant x
-    simpExpr (Cond (Bool True) e _) = e
-    simpExpr (Cond (Bool False) _ e) = e
-    simpExpr (Plus (Const 0) x) = x
-    simpExpr (Plus x (Const 0)) = x
-    simpExpr (Plus (Const x) (Plus (Const y) e)) =
-      Plus (Const (x+y)) e
-    simpExpr (Times (Const 0) x) = Const 0
-    simpExpr (Times x (Const 0)) = Const 0
-    simpExpr (Times (Const 1) x) = x
-    simpExpr (Times x (Const 1)) = x
-    simpExpr (Times (Const x) (Times (Const y) e)) =
-      Times (Const (x*y)) e
-    simpExpr (Times (Negate x) y) = Negate (Times x y)
-    simpExpr (Times x (Negate y)) = Negate (Times x y)
-    simpExpr (Times (Const x) (Plus y z)) = Plus (Times (Const x) y) (Times (Const x) z)
-    simpExpr (Times e (Const x)) | not (isConstant e) = Times (Const x) e
-      where
-        isConstant Const{} = True
-        isConstant _ = False
-    simpExpr (Negate (Plus x y)) = Plus (Negate x) (Negate y)
-    simpExpr (Plus (Negate e) e') | e == e' = Const 0
-    simpExpr (Plus (Negate e) (Plus e' e1)) | e == e' = e1
-    -- Normalise so that constants come together
-    simpExpr (Times (Times x y) z) = Times x (Times y z)
-    simpExpr (Times x (Times y z)) = Times x' (Times y' z)
-      where
-        [x', y'] = sort [x, y]
-    simpExpr (Times x y) = Times x' y'
-      where
-        [x', y'] = sort [x, y]
-    -- Normalise so that e and Negate e come together, and constants
-    simpExpr (Plus (Plus x y) z) = Plus x (Plus y z)
-    simpExpr (Plus x (Plus y z)) = Plus x' (Plus y' z)
-      where
-        [x', y'] = sortBy (comparing cmp) [x, y]
-    simpExpr (Plus x y) = Plus x' y'
-      where
-        [x', y'] = sortBy (comparing cmp) [x, y]
-    simpExpr e = e
+simplifyExpr :: Expr -> Expr
+simplifyExpr = fixpoint (transformBi simp)
+  where
+    simp e | Just x <- evalM Nothing Map.empty e = constant x
+    simp (Old e) | Just x <- evalM Nothing Map.empty e = constant x
+    simp (Cond (Bool True) e _) = e
+    simp (Cond (Bool False) _ e) = e
+    simp (Times (Const x) (Plus y z)) = Plus (Times (Const x) y) (Times (Const x) z)
+    simp e@Plus{} =
+      case terms e of
+        (pos, neg)
+          | null pos' && null neg' -> Const 0
+          | otherwise ->
+            foldr1 Plus (pos' ++ map Negate neg')
+          where
+            -- Remove common terms
+            pos' = pos \\ neg
+            neg' = neg \\ pos
+    simp e@Times{} =
+      case factors e of
+        (0, _) -> Const 0
+        (k, []) -> Const k
+        (k, es) ->
+          -- If k is negative, multiply with abs k and use Negate
+          -- (this simplifies better if inside a Plus)
+          (if k < 0 then Negate else id) $
+          -- Multiply with abs k only if necessary
+          (if abs k == 1 then id else Times (Const (abs k))) $
+          foldr1 Times es
+    simp e = e
 
-    cmp (Negate e) = (e, False)
-    cmp e = (e, True)
+eliminateDuplicates :: Process -> Process
+eliminateDuplicates =
+  fixpoint $ \p ->
+  let
+    equivalent = partitionBy (definition p) (Set.toList (vars p))
+    renaming =
+      Map.fromList
+        [ (y, x)
+        | (x:xs) <- equivalent,
+          y <- xs ]
+  in
+    rename (\x -> Map.findWithDefault x x renaming) p
 
-    constantValue e =
-      case filter impure (universeBi e) of
-        [] -> Just (eval undefined undefined e)
-        _  -> Nothing
-      where
-        impure Var{} = True
-        impure Delta = True
-        impure Old{} = True
-        impure IntegralReset{} = True
-        impure _ = False
+definition :: Process -> Var -> (Maybe Expr, Maybe Expr)
+definition p x = (def (start p), def (step p))
+  where
+    def (If cond s1 s2) =
+      case (def s1, def s2) of
+        (Nothing, Nothing) -> Nothing
+        (Just e, Nothing)  -> Just e
+        (Nothing, Just e)  -> Just e
+        (Just e1, Just e2) -> Just (Cond cond e1 e2)
+    def (Assume _ s) = def s
+    def (Assert _ s) = def s
+    def (Update m) = Map.lookup x m
 
+-- Eliminate difficult constructs
 lower :: Process -> Process
 lower = fixpoint (eliminateState . eliminateCond . eliminateMinMax . eliminateDeriv . simplify)
 
 eliminateState :: Process -> Process
-eliminateState p =
-  case [(e, f) | e <- universeBi p, f <- maybeToList (lowerExpr e)] of
-    [] -> p
-    ((e, f):_) ->
-      lower $
-        name $ \x ->
-          let
-            (q, e') = f x
-          in
-            parP [replace e e' p, q]
+eliminateState =
+  -- Idea: replace an expression such as an integral with a process that
+  -- computes the integral and stores the result in a variable
+  -- e.g.:
+  --   x := .... integral e ....
+  -- becomes
+  --   (x := .... v ....) & continuous v 0 (v + e * delta)
+  fixpoint $ \p ->
+    case [(e, f) | e <- universeBi p, f <- maybeToList (lowerExpr e)] of
+      [] -> p
+      ((e, f):_) ->
+        lower $
+          name $ \x ->
+            let
+              (q, e') = f x
+            in
+              replace e e' p & q
   where
+    -- Input: expression to lower
+    -- Output:
+    --   Nothing if cannot be lowered
+    --   Otherwise Just (\x -> (p, e)) where:
+    --     * x is the variable the expression will be stored in
+    --     * p is a process which will compute x
+    --     * e is the lowering of the expression
     lowerExpr :: Expr -> Maybe (Var -> (Process, Expr))
     lowerExpr (Old e) =
-      Just $ \x -> (continuous x 0 e, Var x)
+      Just $ \x ->
+      (continuous x 0 e,
+       -- e.g. y := Old e becomes
+       --      y := x & x := e
+       -- which has the right effect because all updates are performed
+       -- simultaneously
+       Var x)
     lowerExpr (IntegralReset e reset) =
       Just $ \x ->
         let e' = Cond reset 0 (Var x + Delta * e) in
         (continuous x 0 e',
-         -- x itself is the *old* value of the integral
+         -- x itself is the *old* value of the integral,
+         -- so e' is the current value
          e')
     lowerExpr _ = Nothing
 
@@ -469,16 +364,15 @@ eliminateState p =
       transformBi (\e -> if e == e1 then e2 else e) p
 
 eliminateCond :: Process -> Process
-eliminateCond = fixpoint (both elim)
+eliminateCond =
+  fixpoint $ both $ \s ->
+    case [cond | Cond cond _ _ <- universeBi s] of
+      [] -> s
+      (cond:_) ->
+        If cond
+        (transformBi (elimCond cond True) s)
+        (transformBi (elimCond cond False) s)
   where
-    elim s =
-      case [cond | Cond cond _ _ <- universeBi s] of
-        [] -> s
-        (cond:_) ->
-          If cond
-            (transformBi (elimCond cond True) s)
-            (transformBi (elimCond cond False) s)
-
     chooseCond cond True (Cond cond' e _) | cond == cond' = e
     chooseCond cond False (Cond cond' _ e) | cond == cond' = e
     chooseCond _ _ e = e
@@ -500,89 +394,150 @@ eliminateDeriv = transformBi f
     f (Deriv e) = (e - Old e) / Old Delta
     f e = e
 
+-- Separates a sum into positive and negative parts
+terms :: Expr -> ([Expr], [Expr])
+terms e
+  | k > 0  = (Const k:pos, neg)
+  | k < 0  = (pos, Const (-k):neg)
+  | k == 0 = (pos, neg)
+  where
+    (k, pos, neg) = terms' e
+
+-- Separates a sum into positive and negative parts and a constant
+terms' :: Expr -> (Double, [Expr], [Expr])
+terms' (Plus e1 e2) = (k1 + k2, pos1 ++ pos2, neg1 ++ neg2)
+  where
+    (k1, pos1, neg1) = terms' e1
+    (k2, pos2, neg2) = terms' e2
+terms' (Negate e) = (-k, neg, pos)
+  where
+    (k, pos, neg) = terms' e
+terms' (Const x) = (x, [], [])
+terms' e = (0, [e], [])
+
+-- Separates a product into constant and non-constant parts
+factors :: Expr -> (Double, [Expr])
+factors (Times e1 e2) = (k1*k2, xs ++ ys)
+  where
+    (k1, xs) = factors e1
+    (k2, ys) = factors e2
+factors (Negate e) = (negate k, xs)
+  where
+    (k, xs) = factors e
+factors (Const x) = (x, [])
+factors e = (1, [e])
+
 ----------------------------------------------------------------------
--- evaluation
+-- Evaluation
+----------------------------------------------------------------------
 
 type Env = Map Var Value
 data Value = DoubleValue Double | BoolValue Bool deriving (Eq, Show)
 
-double :: Value -> Double
-double (DoubleValue x) = x
-double _ = error "type error"
+double :: Monad m => Value -> m Double
+double (DoubleValue x) = return x
+double _ = fail "type error: got bool but expected double"
 
-bool :: Value -> Bool
-bool (BoolValue x) = x
-bool _ = error "type error"
+bool :: Monad m => Value -> m Bool
+bool (BoolValue x) = return x
+bool _ = fail "type error: got double but expected bool"
 
 constant :: Value -> Expr
 constant (DoubleValue x) = Const x
 constant (BoolValue x) = Bool x
 
 eval :: Double -> Env -> Expr -> Value
-eval _ env (Var x) =
-  Map.findWithDefault (error "variable not bound") x env
-eval delta _ Delta =
-  DoubleValue delta
-eval _ _ (Const x) =
-  DoubleValue x
-eval delta env (Plus e1 e2) =
-  DoubleValue (double (eval delta env e1) + double (eval delta env e2))
-eval delta env (Times e1 e2) =
-  DoubleValue (double (eval delta env e1) * double (eval delta env e2))
-eval delta env (Power e1 e2) =
-  DoubleValue (double (eval delta env e1) ** double (eval delta env e2))
-eval delta env (Negate e) =
-  DoubleValue (negate (double (eval delta env e)))
-eval delta env (Sin e) =
-  DoubleValue (sin (double (eval delta env e)))
-eval delta env (Not e) =
-  BoolValue (not (bool (eval delta env e)))
-eval delta env (And e1 e2) =
-  BoolValue (bool (eval delta env e1) && bool (eval delta env e2))
-eval _ _ (Bool x) =
-  BoolValue x
-eval delta env (Positive e) =
-  BoolValue (double (eval delta env e) >= 0)
-eval delta env (Zero e) =
-  BoolValue (double (eval delta env e) == 0)
-eval delta env (Cond e1 e2 e3) =
-  if bool (eval delta env e1)
-  then eval delta env e2
-  else eval delta env e3
-eval delta env (Min e1 e2) =
-  DoubleValue (min (double (eval delta env e1)) (double (eval delta env e2)))
-eval delta env (Max e1 e2) =
-  DoubleValue (max (double (eval delta env e1)) (double (eval delta env e2)))
-eval _ _ (Old _) =
-  error "use 'lower' before evaluation"
-eval _ _ (IntegralReset _ _) =
-  error "use 'lower' before evaluation"
-eval _ _ (Deriv _) =
-  error "use 'lower' before evaluation"
+eval delta env e =
+  case evalM (Just delta) env e of
+    Left err -> error ("eval: " ++ err)
+    Right x -> x
+
+-- The evaluator is monadic so that we can use it
+-- in simplify for constant folding
+evalM :: Monad m => Maybe Double -> Env -> Expr -> m Value
+evalM _ env (Var x) =
+  case Map.lookup x env of
+    Nothing -> fail ("variable " ++ show x ++ " not bound")
+    Just v -> return v
+evalM mdelta _ Delta =
+  case mdelta of
+    Nothing -> fail "delta not defined"
+    Just delta -> return (DoubleValue delta)
+evalM _ _ (Const x) =
+  return (DoubleValue x)
+evalM delta env (Plus e1 e2) =
+  DoubleValue <$> do
+    x <- double =<< evalM delta env e1
+    y <- double =<< evalM delta env e2
+    return (x+y)
+evalM delta env (Times e1 e2) =
+  DoubleValue <$> do
+    x <- double =<< evalM delta env e1
+    y <- double =<< evalM delta env e2
+    return (x*y)
+evalM delta env (Power e1 e2) =
+  DoubleValue <$> do
+    x <- double =<< evalM delta env e1
+    y <- double =<< evalM delta env e2
+    return (x**y)
+evalM delta env (Negate e) =
+  DoubleValue <$> negate <$> (double =<< evalM delta env e)
+evalM delta env (Sin e) =
+  DoubleValue <$> sin <$> (double =<< evalM delta env e)
+evalM delta env (Not e) =
+  BoolValue <$> not <$> (bool =<< evalM delta env e)
+evalM delta env (And e1 e2) =
+  BoolValue <$> do
+    x <- bool =<< evalM delta env e1
+    y <- bool =<< evalM delta env e2
+    return (x && y)
+evalM _ _ (Bool x) =
+  return (BoolValue x)
+evalM delta env (Positive e) =
+  BoolValue <$> (>= 0) <$> (double =<< evalM delta env e)
+evalM delta env (Zero e) =
+  BoolValue <$> (== 0) <$> (double =<< evalM delta env e)
+evalM delta env (Cond e1 e2 e3) = do
+  x <- bool =<< evalM delta env e1
+  if x then
+    evalM delta env e2
+  else
+    evalM delta env e3
+evalM delta env (Min e1 e2) =
+  DoubleValue <$> do
+    x <- double =<< evalM delta env e1
+    y <- double =<< evalM delta env e2
+    return (min x y)
+evalM delta env (Max e1 e2) =
+  DoubleValue <$> do
+    x <- double =<< evalM delta env e1
+    y <- double =<< evalM delta env e2
+    return (max x y)
+evalM _ _ e =
+  fail ("dont't know how to evaluate " ++ show e)
 
 data Result = OK | PreconditionFailed Expr | PostconditionFailed Expr
   deriving Show
 
 execStep :: Double -> Env -> Step -> (Env, Result)
 execStep delta env (If e s1 s2) =
-  if bool (eval delta env e)
+  if fromJust (bool (eval delta env e))
   then execStep delta env s1
   else execStep delta env s2
 execStep delta env (Assume e s) =
-  if bool (eval delta env e)
+  if fromJust (bool (eval delta env e))
   then execStep delta env s
   else (env, PreconditionFailed e)
 execStep delta env (Assert e s) =
-  if bool (eval delta env e)
+  if fromJust (bool (eval delta env e))
   then execStep delta env s
   else (env, PostconditionFailed e)
 execStep delta env (Update m) =
   -- N.B. Map.union is left-biased
   (Map.union (Map.map (eval delta env) m) env, OK)
 
-execProcess ::
-  Double -> [Env] -> Process -> ([Env], Result)
-execProcess delta inputs process =
+simulate :: Double -> [Env] -> Process -> ([Env], Result)
+simulate delta inputs process =
   loop Map.empty [] (Map.empty:inputs) (start process':repeat (step process'))
   where
     process' = lower process
@@ -592,3 +547,140 @@ execProcess delta inputs process =
       case execStep delta (Map.union inp env) step of
         (env, OK) -> loop env (env:history) inps steps
         (env, err) -> (reverse (env:history), err)
+
+----------------------------------------------------------------------
+-- Pretty-printing
+----------------------------------------------------------------------
+
+instance Pretty Process where
+  pPrint p =
+    vcat $
+      [ hang (text "start") 2 (pPrint (start p)) | nonempty (start p) ] ++
+      [ hang (text "step") 2 (pPrint (step p)) | nonempty (step p) ]
+    where
+      nonempty (Update m) = Map.size m > 0
+      nonempty _ = True
+
+instance Pretty Step where
+  pPrint (If e s1 s2) =
+    ppIfThenElse (pPrint e) (pPrint s1) (pPrint s2)
+  pPrint (Assume e s) =
+    hang (text "assume") 2 (pPrint e) $$
+    pPrint s
+  pPrint (Assert e s) =
+    hang (text "e") 2 (pPrint e) $$
+    pPrint s
+  pPrint (Update m) =
+    vcat
+      [ hang (pPrint x <+> text "<-") 2 (pPrint e)
+      | (x, e) <- Map.toList m ]
+
+instance Pretty Expr where
+  pPrintPrec _ p = ppExp p
+
+instance Pretty Var where
+  pPrint (Global x) = text x
+  pPrint (Local n) = text "x" <#> pPrint n
+
+instance Pretty Doc where
+  pPrint = id
+
+-- Precedence levels:
+-- 0: no brackets
+-- 1: and (associative)
+-- 2: not
+-- 3: positive/zero
+-- 4: plus (associative)
+-- 5: negate
+-- 6: times (associative)
+-- 7: power (non-associative)
+-- 9: atomic
+ppExp :: Rational -> Expr -> Doc
+ppExp _ (Var x) = pPrint x
+ppExp _ Delta = text "dt"
+ppExp _ (Const x) = text (shortest (show x) (printf "%.5f" x))
+  where
+    shortest x y
+      | length x <= length y = x
+      | otherwise = y
+ppExp n (Plus e1 e2) =
+  maybeParens (n > 4) $
+    sep [
+      ppExp 4 e1,
+      -- a + -b => a-b
+      -- a + (-b+c) => a - b + c
+      case e2 of
+        Negate e3 ->
+          text "-" <+> ppExp 5 e3
+        Plus (Negate e3) e4 ->
+          text "-" <+> ppExp 4 (Plus e3 e4)
+        _ ->
+          ppExp 4 e2]
+ppExp n (Times e1 e2) =
+  ppAssoc n "*" 6 e1 e2
+ppExp n (Power e (Const (-1))) =
+  ppUnary n "1/" 7 e
+ppExp n (Power e1 e2) =
+  maybeParens (n > 7) $
+    cat [ppExp 8 e1 <#> text "^", nest 2 (ppExp 8 e2)]
+ppExp n (Negate e) = ppUnary n "-" 5 e
+ppExp _ (Sin e) = ppFunction "sin" [e]
+ppExp n (Not e) = ppUnary n "not " 2 e
+ppExp n (And e1 e2) = ppAssoc n " and " 1 e1 e2
+ppExp _ (Bool True) = text "true"
+ppExp _ (Bool False) = text "false"
+ppExp n (Positive e) =
+  ppAssoc n " >= " 3 (ppSum pos) (ppSum neg)
+  where
+    (pos, neg) = terms e
+ppExp n (Zero e) =
+  ppAssoc n " = " 3 (ppSum pos) (ppSum neg)
+  where
+    (pos, neg) = terms e
+ppExp n (Cond e1 e2 e3) =
+  maybeParens (n > 0) $
+    -- else-branch must be atomic to avoid ambiguity
+    ppIfThenElse (ppExp 0 e1) (ppExp 0 e2) (ppExp 9 e3)
+ppExp n (Min e1 e2) =
+  ppFunction "min" [e1, e2]
+ppExp n (Max e1 e2) =
+  ppFunction "max" [e1, e2]
+ppExp n (Old e) =
+  ppFunction "old" [e]
+ppExp n (IntegralReset e (Bool False)) =
+  ppFunction "integral" [e]
+ppExp n (IntegralReset e reset) =
+  ppFunction "integral" [e, reset]
+ppExp n (Deriv e) =
+  ppFunction "derivative" [e]
+
+ppFunction :: String -> [Expr] -> Doc
+ppFunction op es =
+  cat [
+    text op,
+    nest 2 $ parens $
+      sep (punctuate comma (map (ppExp 0) es))]
+
+ppUnary :: Rational -> String -> Rational -> Expr -> Doc
+ppUnary n op p e =
+  maybeParens (n > p) $
+    text op <#> ppExp (p+1) e
+
+ppAssoc :: Rational -> String -> Rational -> Expr -> Expr -> Doc
+ppAssoc n op p e1 e2 =
+  maybeParens (n > p) $
+    sep [ppExp p e1, text op <+> ppExp p e2]
+
+ppSum :: [Expr] -> Expr
+ppSum [] = Const 0
+ppSum xs = sum xs
+
+ppIfThenElse :: Doc -> Doc -> Doc -> Doc
+ppIfThenElse x y z =
+  sep [
+    sep [sep [text "if", nest 2 x, text "then"], nest 2 y, text "else"],
+      nest 2 z]
+
+infixl 6 <#>
+(<#>) :: Doc -> Doc -> Doc
+(<#>) = (Text.PrettyPrint.HughesPJClass.<>)

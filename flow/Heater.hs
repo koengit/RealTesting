@@ -20,13 +20,13 @@ pump = Global "pump"
 
 -- the system
 system :: Control -> Process
-system control = parP [plant, controller control]
+system control = plant & controller control
 
 -- the plant
 -- input: pump, output: roomTemp
 
 plant :: Process
-plant = parP [room, heater]
+plant = room & heater
  where
   startTemp    = outsideTemp
   boilerTemp   = 90

@@ -599,10 +599,12 @@ instance Pretty Step where
   pPrint (Assert e s) =
     hang (text "e") 2 (pPrint e) $$
     pPrint s
-  pPrint (Update m) =
-    vcat
-      [ hang (pPrint x <+> text "<-") 2 (pPrint e)
-      | (x, e) <- Map.toList m ]
+  pPrint (Update m)
+    | Map.null m = text "skip"
+    | otherwise =
+      vcat
+        [ hang (pPrint x <+> text "<-") 2 (pPrint e)
+        | (x, e) <- Map.toList m ]
 
 instance Pretty Expr where
   pPrintPrec _ p = ppExp p
@@ -707,8 +709,10 @@ ppSum xs = foldr1 (+) xs
 ppIfThenElse :: Doc -> Doc -> Doc -> Doc
 ppIfThenElse x y z =
   sep [
-    sep [sep [text "if", nest 2 x, text "then"], nest 2 y, text "else"],
-      nest 2 z]
+    sep [text "if", nest 2 x, text "then"],
+    nest 2 y,
+    text "else",
+    nest 2 z]
 
 infixl 6 <#>
 (<#>) :: Doc -> Doc -> Doc

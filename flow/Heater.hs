@@ -61,7 +61,7 @@ controller (k_p,k_i,k_d) =
   continuous pump 0 $ clamp 0 1 $
       Const k_p * err
     + Const k_i * integral err
-    + Const k_d * derivative err
+    + Const k_d * Deriv err
   where
     err   = Var goalTemp - Var roomTemp
 

@@ -94,24 +94,75 @@ instance Vars Expr
 instance Vars Step
 instance Vars Process
 
-replace :: Data a => Expr -> Expr -> a -> a
-replace e1 e2 = descendBi f
-  where
-    f e | e == e1 = e2
-    -- Replacement must respect Old
-    f (Old e) =
-      case (e1, e2) of
-        (Old e1', Old e2') ->
-          Old (replace e1' e2' e)
-        _ ->
-          Old e
-    f e = descend f e
+-- NOTE: Old has special semantics and we have to be careful about it.
+--
+-- Consider the following optimisation: replace
+--   if e then C[e] else ...
+-- with
+--   if e then C[true] else ...
+--
+-- This optimisation is NOT CORRECT! If we have, say,
+--   if e then ... Old e ... else ...
+-- then we can certainly NOT replace Old e with Old true, because e may
+-- not have been true in the previous timestep.
+--
+-- This mistake comes from thinking that two syntactically equal terms e1 and e2
+-- must have the same value. But that's not true because Old changes the semantics
+-- of its argument. The actual rule is:
+--   Two syntactically equal terms t1 and t2 must have the same value,
+--   IF they are nested under the same number of Olds.
+--
+-- So, when reasoning about equality of terms, you have to be careful about Old.
+-- The two functions below try to take care of this for you in many cases.
 
+-- Find all the subexpressions of a given value.
+-- Each subexpression is wrapped in an appropriate number of Olds, for example:
+--   exprs (Old (e1 + Old e2)) = [Old e1, Old (Old e2), ...]
+-- This means that the returned subexpression, when evaluated outside of
+-- any Olds, will have the same value as the original subexpression in its
+-- original context.
 exprs :: Data a => a -> [Expr]
 exprs = concatMap f . childrenBi
   where
+    -- See note above
     f (Old e) = map Old (f e)
     f e = e:concatMap f (children e)
+
+-- Replace all occurrences of an expression with another one in a value.
+-- Takes care to only replace occurrences that are nested in the correct
+-- number of Olds. For example:
+--   replace e1 e2 (Old e1) =
+--     Old e1 (*not* Old e2)
+--   replace (Old e1) (Old (Old e2)) (Old (e1 + e3)) =
+--     Old (Old e2 + e3)
+--   replace (Old e1) e2 (Old (e1 + e3)) =
+--     e2 + Old e3 (since Old (e1 + e3) = Old e1 + Old e3)
+-- If e1 is a subexpression returned by exprs e, then replace e1 e2 e is
+-- guaranteed to replace that subexpression.
+replace :: Data a => Expr -> Expr -> a -> a
+replace e1 e2 = descendBi (f e1 e2)
+  where
+    f e1 e2 e | e == e1 = e2
+    -- See note above
+    f (Old e1) (Old e2) (Old e) =
+      Old (f e1 e2 e)
+    -- This handles the case e.g. f (Old e1) e2 (Old (e1+x)) -> e2+Old x,
+    -- which is necessary for compatibility with exprs
+    f e1 e2 e@Old{} =
+      case hideOld e of
+        Old{} -> e
+        e' ->
+          let res = f e1 e2 e' in
+          if e' == res then e else res
+    f e1 e2 e = descend (f e1 e2) e
+
+-- Move Old inwards so that the top-level constructor is not an Old,
+-- unless the expression is Old^n (Var x) or Old^n Delta
+hideOld :: Expr -> Expr
+hideOld (Old Delta) = Old Delta
+hideOld (Old (Var x)) = Old (Var x)
+hideOld (Old e) = descend Old (hideOld e)
+hideOld e = e
 
 ----------------------------------------------------------------------
 -- Helper functions for the implementation
@@ -272,21 +323,26 @@ simplifyExpr = fixpoint (transformBi simp)
     simp (Cond _ e e') | e == e' = e
     simp (Cond cond e1 e2) =
       Cond cond (propagateBool cond True e1) (propagateBool cond False e2)
-
     simp (Not (Not e)) = e
+    simp (Times (Const x) (Plus y z)) = Plus (Times (Const x) y) (Times (Const x) z)
+    simp (Zero e)
+      -- Sort u = t to t = u
+      | neg > pos = Zero (Negate e)
+      where
+        (pos, neg) = terms e
     simp e@And{} =
       case conjuncts e of
         Nothing -> Bool False
         Just ([], []) -> Bool True
         Just (pos, neg) ->
           foldr1 And .
-          reverse . scanl1 propagate $
-          reverse . scanl1 propagate $ (pos ++ map Not neg)
+          -- Let each conjunct be simplified under the assumption
+          -- that the others are true
+          fixpoint (reverse . scanl1 propagate . reverse . scanl1 propagate) $
+          pos ++ map Not neg
       where
         propagate e1 e2 =
           propagateBool e1 True e2
-
-    simp (Times (Const x) (Plus y z)) = Plus (Times (Const x) y) (Times (Const x) z)
     simp e@Plus{} =
       case terms e of
         ([], []) -> Const 0
@@ -303,11 +359,6 @@ simplifyExpr = fixpoint (transformBi simp)
           -- Multiply with abs k only if necessary
           (if abs k == 1 then id else Times (Const (abs k))) $
           foldr1 Times es
-    simp (Zero e)
-      -- Sort u = t to t = u
-      | neg > pos = Zero (Negate e)
-      where
-        (pos, neg) = terms e
     simp e = e
 
 -- Given a Boolean expression and its truth value,
@@ -320,13 +371,11 @@ propagateBool cond val = descendBi (propagate cond val)
   where
     propagate cond True e  | implies cond e = Bool True
     propagate cond False e | implies e cond = Bool False
-    -- Be careful not to mix up ages
-    propagate cond val (Old e) =
-      case cond of
-        Old cond' ->
-          Old (propagate cond' val e)
-        _ ->
-          Old e
+    -- Keep track of the nesting level of Old.
+    -- See note above 'exprs' for more info.
+    propagate (Old cond) val (Old e) =
+      Old (propagate cond val e)
+    propagate cond val (Old e) = Old e
     propagate cond val e = descend (propagate cond val) e
 
     -- This is pretty crappy but helps with abs somewhat
@@ -429,11 +478,7 @@ eliminateCond =
     isBool _ = False
 
     findConds e =
-      [cond | Cond cond _ _ <- map norm (exprs e)]
-    norm (Old e)
-      | Cond e1 e2 e3 <- norm e =
-        Cond (Old e1) (Old e2) (Old e3)
-    norm e = e
+      [cond | Cond cond _ _ <- map hideOld (exprs e)]
 
 eliminateMinMax :: Process -> Process
 eliminateMinMax = transformBi f

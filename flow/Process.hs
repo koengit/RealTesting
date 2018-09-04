@@ -60,7 +60,7 @@ data Expr =
  | Old Expr                -- previous value of expression
  | IntegralReset Expr Expr -- first argument: quantity to integrate; second argument: reset if true
  | Deriv Expr
- deriving (Eq, Typeable, Data)
+ deriving (Eq, Ord, Typeable, Data)
 
 data Var =
     Global String
@@ -493,7 +493,7 @@ conjuncts :: Expr -> Maybe ([Expr], [Expr])
 conjuncts e = do
   (pos, neg) <- conj e
   guard (null (intersect pos neg))
-  return (nub pos, nub neg)
+  return (usort pos, usort neg)
   where
     conj (And e1 e2) = do
       (pos1, neg1) <- conj e1

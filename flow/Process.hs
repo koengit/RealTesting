@@ -219,6 +219,10 @@ x /=? y = Not (x ==? y)
 x >=? y = Positive (x-y)
 x <=? y = y >=? x
 
+-- Booleans
+orr :: Expr -> Expr -> Expr
+orr e1 e2 = Not (And (Not e1) (Not e2))
+
 -- Clamp a value to a range
 clamp :: Expr -> Expr -> Expr -> Expr
 clamp lo hi x =
@@ -340,6 +344,12 @@ propagateBool cond val = transformBi (propagate val)
     implies (Positive e1) (Positive e2)
       | (k, [], []) <- terms' (e2 - e1),
         k >= 0 = True
+    implies (And e1 e2) e3 =
+      implies e1 e3 || implies e2 e3
+    implies e1 (And e2 e3) =
+      implies e1 e2 && implies e1 e3
+    implies (Not e1) (Not e2) =
+      implies e2 e1
     implies e1 e2 = e1 == e2
 
 -- Eliminate difficult constructs

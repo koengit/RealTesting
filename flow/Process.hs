@@ -279,11 +279,13 @@ simplifyExpr = fixpoint (transformBi simp)
         Nothing -> Bool False
         Just ([], []) -> Bool True
         Just (pos, neg) ->
-          foldr1 and' (pos ++ map Not neg)
+          foldr1 And .
+          reverse . scanl1 propagate $
+          reverse . scanl1 propagate $ (pos ++ map Not neg)
       where
-        and' e1 e2 =
-          And e1 (propagateBool e1 True e2)
-          
+        propagate e1 e2 =
+          propagateBool e1 True e2
+
     simp (Times (Const x) (Plus y z)) = Plus (Times (Const x) y) (Times (Const x) z)
     simp e@Plus{} =
       case terms e of
@@ -425,7 +427,7 @@ eliminateCond =
     isBool Zero{} = True
     isBool Positive{} = True
     isBool _ = False
-    
+
     findConds e =
       [cond | Cond cond _ _ <- map norm (exprs e)]
     norm (Old e)

@@ -79,7 +79,7 @@ instance Show Var where
   show = show . pPrint
 
 ----------------------------------------------------------------------
--- Free variables, renaming and substitutions
+-- Free variables, renaming and replacement
 ----------------------------------------------------------------------
 
 class Data a => Vars a where
@@ -89,15 +89,28 @@ class Data a => Vars a where
   rename :: (Var -> Var) -> a -> a
   rename = transformBi
 
-subst :: (Var -> Expr) -> Expr -> Expr
-subst sub = transformBi f
-  where
-    f (Var x) = sub x
-    f x = x
+instance Vars Expr
+instance Vars Step
+instance Vars Process
 
 replace :: Data a => Expr -> Expr -> a -> a
-replace e1 e2 p =
-  transformBi (\e -> if e == e1 then e2 else e) p
+replace e1 e2 = descendBi f
+  where
+    f e | e == e1 = e2
+    -- Replacement must respect Old
+    f (Old e) =
+      case (e1, e2) of
+        (Old e1', Old e2') ->
+          Old (replace e1' e2' e)
+        _ ->
+          Old e
+    f e = descend f e
+
+exprs :: Data a => a -> [Expr]
+exprs = concatMap f . childrenBi
+  where
+    f (Old e) = map Old (f e)
+    f e = e:concatMap f (children e)
 
 ----------------------------------------------------------------------
 -- Helper functions for the implementation
@@ -318,11 +331,18 @@ definition p x = (def (start p), def (step p))
 propagateBool :: Data a => Expr -> Bool -> a -> a
 propagateBool (Not e) val = propagateBool e (not val)
 propagateBool (And e1 e2) True = propagateBool e1 True . propagateBool e2 True
-propagateBool cond val = transformBi (propagate val)
+propagateBool cond val = descendBi (propagate cond val)
   where
-    propagate True e  | implies cond e = Bool True
-    propagate False e | implies e cond = Bool False
-    propagate _ e = e
+    propagate cond True e  | implies cond e = Bool True
+    propagate cond False e | implies e cond = Bool False
+    -- Be careful not to mix up ages
+    propagate cond val (Old e) =
+      case cond of
+        Old cond' ->
+          Old (propagate cond' val e)
+        _ ->
+          Old e
+    propagate cond val e = descend (propagate cond val) e
 
     -- This is pretty crappy but helps with abs somewhat
     -- (no need for Zero/Zero case because simplify will normalise)
@@ -354,15 +374,14 @@ eliminateState =
   -- becomes
   --   (x := .... v ....) & continuous v 0 (v + e * delta)
   fixpoint $ \p ->
-    case [(e, f) | e <- universeBi p, f <- maybeToList (lowerExpr e)] of
+    case [(e, f) | e <- exprs p, f <- maybeToList (lowerExpr e)] of
       [] -> p
       ((e, f):_) ->
-        lower $
-          name $ \x ->
-            let
-              (q, e') = f x
-            in
-              replace e e' p & q
+        name $ \x ->
+          let
+            (q, e') = f x
+          in
+            replace e e' p & q
   where
     -- Input: expression to lower
     -- Output:
@@ -398,12 +417,17 @@ eliminateCond = fixpoint (both (transformBi f . simplifyStep))
     --   if cond then [... Cond cond e1 e2 ...] else [... Cond cond e1 e2 ...]
     -- and then use propagateBool to get rid of the Cond in each branch
     f s =
-      case [cond | Cond cond _ _ <- universeBi s] of
+      case [cond | Cond cond _ _ <- map norm (exprs s)] of
         [] -> s
         (cond:_) ->
           If cond
             (propagateBool cond True s)
             (propagateBool cond False s)
+    -- Move Old inside Cond for the benefit of f
+    norm (Old e)
+      | Cond e1 e2 e3 <- norm e =
+        Cond (Old e1) (Old e2) (Old e3)
+    norm e = e
 
 eliminateMinMax :: Process -> Process
 eliminateMinMax = transformBi f

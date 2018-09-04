@@ -203,7 +203,7 @@ lower p =
       lower $
         name $ \x ->
           let
-            (q, e') = f (scavenge x e)
+            (q, e') = f x
           in
             parP [replace e e' p, q]
   where
@@ -220,28 +220,6 @@ lower p =
 
     replace e1 e2 p =
       transformBi (\e -> if e == e1 then e2 else e) p
-
-    -- As an optimisation, if an IntegralReset or Old is written
-    -- directly to a variable, don't allocate a new
-    -- variable for it
-    scavenge :: Var -> Expr -> Var
-    scavenge x e = fromMaybe x $ do
-      y <- lookup e (map swap stepGlobals)
-      case lookup y startGlobals of
-        -- The initial value should be 0, undefined or
-        -- equal to the step value
-        Just (Const 0) -> Just y
-        Just e' | e == e' -> Just y
-        Nothing -> Just y
-        _ -> Nothing
-
-    -- Only variables that have the same value in all if-branches
-    -- are candidates for scavenging
-    startGlobals = globals (start p)
-    stepGlobals = globals (step p)
-
-    globals :: Step -> [(Var, Expr)]
-    globals = Map.toList . foldr1 Map.intersection . universeBi
 
 ----------------------------------------------------------------------
 -- evaluation

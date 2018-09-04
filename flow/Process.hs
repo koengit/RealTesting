@@ -403,35 +403,31 @@ eliminateCond =
     f s =
       case findConds s of
         [] -> s
-        (cond, _, _):_ ->
+        cond:_ ->
           If cond
             (propagateBool cond True s)
             (propagateBool cond False s)
     -- If Cond is the argument to a predicate (And, Not, Zero, Positive),
     -- encode it using Boolean connectives:
     --   P(Cond e1 e2 e3) = (e1 && P(e2)) || (not e1 && P(e3))
-    introBool (And e1 e2) =
-      fromMaybe (And e1 e2) $
-        applyCond (And e1) e2 `mplus`
-        applyCond (flip And e2) e1
-    introBool (Not e) =
-      fromMaybe (Not e) $ applyCond Not e
-    introBool (Zero e) =
-      fromMaybe (Zero e) $ applyCond Zero e
-    introBool (Positive e) =
-      fromMaybe (Positive e) $ applyCond Positive e
-    introBool e = e
-    
-    applyCond p e =
-      case findConds e of
-        [] -> Nothing
-        (e1, e2, e3):_ ->
-          Just $ orr
-            (And e1 (propagateBool e1 True (p e2)))
-            (And (Not e1) (propagateBool e1 False (p e3)))
+    -- Actually, we produce:
+    --   (e1 && P(Cond e1 e2 e3)) || (not e1 && P(Cond e1 e2 e3))
+    -- and leave it to propagateBool to simplify.
+    introBool e
+      | isBool e, cond:_ <- findConds e =
+         orr
+           (And cond (propagateBool cond True e))
+           (And (Not cond) (propagateBool cond False e))
+      | otherwise = e
 
+    isBool And{} = True
+    isBool Not{} = True
+    isBool Zero{} = True
+    isBool Positive{} = True
+    isBool _ = False
+    
     findConds e =
-      [(e1, e2, e3) | Cond e1 e2 e3 <- map norm (exprs e)]
+      [cond | Cond cond _ _ <- map norm (exprs e)]
     norm (Old e)
       | Cond e1 e2 e3 <- norm e =
         Cond (Old e1) (Old e2) (Old e3)

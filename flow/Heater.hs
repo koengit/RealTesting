@@ -36,7 +36,7 @@ plant = room & heater
   heaterCoeff  = 0.1
   outsideTemp  = -5
   outsideCoeff = 0.05
- 
+
   -- the heater temperature is influenced by how much hot water is pumped into it
   -- and the room temperature
   heater =

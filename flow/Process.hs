@@ -1,11 +1,11 @@
-{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, PatternGuards #-}
+{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, PatternGuards, DeriveDataTypeable #-}
 module Process where
 
 import Data.Map(Map)
 import qualified Data.Map.Strict as Map
 import Data.Set(Set)
 import qualified Data.Set as Set
-import Data.Generics.Geniplate -- cabal install geniplate-mirror
+import Data.Generics.Uniplate.Data
 import Data.Tuple(swap)
 import Data.Maybe
 import Data.Ord
@@ -14,6 +14,7 @@ import Text.PrettyPrint.HughesPJClass hiding ((<>), double)
 import qualified Text.PrettyPrint.HughesPJClass
 import Text.Printf
 import Utils
+import Data.Data
 
 ----------------------------------------------------------------------
 -- Processes
@@ -26,14 +27,14 @@ data Process =
     locals :: Int, -- number of bound variables
     start :: Step, -- initialisation
     step :: Step   -- loop step
-  } deriving Eq
+  } deriving (Eq, Typeable, Data)
 
 data Step =
    If Expr Step Step     -- if-then-else
  | Assume Expr Step      -- check precondition
  | Assert Expr Step      -- check postcondition
  | Update (Map Var Expr) -- update variables
- deriving Eq
+ deriving (Eq, Typeable, Data)
 
 data Expr =
    Var Var      -- variable
@@ -58,12 +59,12 @@ data Expr =
  | Old Expr                -- previous value of expression
  | IntegralReset Expr Expr -- first argument: quantity to integrate; second argument: reset if true
  | Deriv Expr
- deriving (Eq, Ord)
+ deriving (Eq, Ord, Typeable, Data)
 
 data Var =
     Global String
   | Local Int
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Typeable, Data)
 
 instance Show Process where
   show = show . pPrint
@@ -81,23 +82,7 @@ instance Show Var where
 -- Free variables, renaming and substitutions
 ----------------------------------------------------------------------
 
-instanceUniverseBi [t| (Expr, Var)|]
-instanceUniverseBi [t| (Step, Var)|]
-instanceUniverseBi [t| (Process, Var)|]
-instanceUniverseBi [t| (Expr, Expr)|]
-instanceUniverseBi [t| (Step, Expr)|]
-instanceUniverseBi [t| (Process, Expr)|]
-instanceUniverseBi [t| (Step, Map Var Expr)|]
-instanceTransformBi [t| (Expr, Expr)|]
-instanceTransformBi [t| (Expr, Step)|]
-instanceTransformBi [t| (Expr, Process)|]
-instanceTransformBi [t| (Var, Expr)|]
-instanceTransformBi [t| (Var, Step)|]
-instanceTransformBi [t| (Var, Process)|]
-instanceTransformBi [t| (Step, Step)|]
-instanceTransformBi [t| (Map Var Expr, Step)|]
-
-class (UniverseBi a Var, TransformBi Var a) => Vars a where
+class Data a => Vars a where
   vars :: a -> Set Var
   vars = Set.fromList . universeBi
 
@@ -121,7 +106,7 @@ subst sub = transformBi f
     f (Var x) = sub x
     f x = x
 
-replace :: TransformBi Expr a => Expr -> Expr -> a -> a
+replace :: Data a => Expr -> Expr -> a -> a
 replace e1 e2 p =
   transformBi (\e -> if e == e1 then e2 else e) p
 
@@ -337,7 +322,7 @@ definition p x = (def (start p), def (step p))
 -- Given a Boolean expression and its truth value,
 -- replace any other Boolean whose value can now be determined
 -- (e.g. the same Boolean expression appearing elsewhere in the program)
-propagateBool :: TransformBi Expr a => Expr -> Bool -> a -> a
+propagateBool :: Data a => Expr -> Bool -> a -> a
 propagateBool cond val = transformBi (propagate val)
   where
     propagate True e  | implies cond e = Bool True

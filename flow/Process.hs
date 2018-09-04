@@ -47,6 +47,7 @@ data Expr =
  | Bool Bool
  | Positive Expr -- e >= 0
  | Zero Expr     -- e == 0
+ | Cond Expr Expr Expr -- would be nice to be able to lower this
    -- These operations can be eliminated by calling 'lower'
  | Old Expr
  | IntegralReset Expr Expr -- first argument: quantity to integrate; second argument: reset if true
@@ -197,17 +198,20 @@ lower p =
     ((e, f):_) ->
       lower $
         name $ \x ->
-          let y = scavenge x e in
-          parP [replace e (Var y) p, f y]
+          let
+            (q, e') = f (scavenge x e)
+          in
+            parP [replace e e' p, q]
   where
-    lowerExpr :: Expr -> Maybe (Var -> Process)
+    lowerExpr :: Expr -> Maybe (Var -> (Process, Expr))
     lowerExpr (Old e) =
-      Just $ \x -> continuous x 0 e
+      Just $ \x -> (continuous x 0 e, Var x)
     lowerExpr (IntegralReset e reset) =
       Just $ \x ->
-        switch reset
-          (continuous x 0 0)
-          (continuous x 0 (Var x + Delta * e))
+        let e' = Var x + Delta * e in
+        (continuous x 0 e',
+         -- x itself is the *old* value of the integral
+         e')
     lowerExpr _ = Nothing
 
     replace e1 e2 p =
@@ -278,6 +282,10 @@ eval delta env (Positive e) =
   BoolValue (double (eval delta env e) >= 0)
 eval delta env (Zero e) =
   BoolValue (double (eval delta env e) == 0)
+eval delta env (Cond e1 e2 e3) =
+  if bool (eval delta env e1)
+  then eval delta env e2
+  else eval delta env e3
 eval _ _ (Old _) =
   error "use 'lower' before evaluation"
 eval _ _ (IntegralReset _ _) =

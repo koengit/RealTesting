@@ -77,7 +77,7 @@ controlleR (k_p,k_i,k_d) =
  where
   err = Var goalTemp - Var roomTemp
 
-  changeGoalTemp = abs (Var goalTemp - Old (Var roomTemp) (Var goalTemp)) /=? 1
+  changeGoalTemp = abs (Var goalTemp - Old 0 (Var goalTemp)) /=? 1
 
 cgood :: Control
 --cgood = (3.997591176733649e-3,8.194771741046325e-5,5.618398605936785e-3)

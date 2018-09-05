@@ -33,7 +33,7 @@ plant pump = roomTemp
   heaterCoeff  = 0.1
   outsideTemp  = -5 -- (-5)
   outsideCoeff = 0.05
- 
+
   -- the heater temperature is influenced by how much hot water is pumped into it
   -- and the room temperature
   heaterTemp = startTemp |-> weigh [ (1-pump,      heaterTemp)
@@ -189,7 +189,7 @@ display name plant =
  where
   roomTemp = plant pump
   pump     = plant roomTemp
- 
+
 --------------------------------------------------------------------------------
 -- search
 

@@ -64,7 +64,7 @@ instance Arbitrary Block where
     do n <- choose (1,100)
        x <- arbitrary
        return (Block n x)
-  
+
   shrink (Block n x) =
     [ Block n' x | n' <- shrink n, n' > 0 ]
     -- ++ [ Block n x' | x' <- shrink x ]

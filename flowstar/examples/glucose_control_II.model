@@ -1,0 +1,112 @@
+hybrid reachability
+{
+ state var G, X, I, t, tl
+
+ setting
+ {
+  fixed steps 0.05
+  time 720
+  remainder estimation 1e-1
+  identity precondition
+  gnuplot octagon t,G
+  adaptive orders { min 2 , max 5 }
+  cutoff 1e-12
+  precision 53
+  output glucose_control_II
+  max jumps 10
+  print on
+ }
+
+ modes
+ {
+  l1
+  {
+   nonpoly ode
+   {
+    G' = - X*(G + 4.5) + 0.5*exp(-0.05 * t)
+    X' = -0.025*X + 0.013*I
+    I' = -0.093*(I + 0.015) + 0.00069444
+    t' = 1
+    tl' = 1
+   }
+
+   inv
+   {
+    G <= 2
+    t <= 720
+   }
+  }
+
+  l2
+  {
+   nonpoly ode
+   {
+    G' = - X*(G + 4.5) + 0.5*exp(-0.05 * t)
+    X' = -0.025*X + 0.013*I
+    I' = -0.093*(I + 0.015) + 0.00027778*G + 0.000138889
+    t' = 1
+    tl' = 1
+   }
+
+   inv
+   {
+    G >= 2
+    G <= 12
+    t <= 720
+   }
+  }
+
+  l3
+  {
+   nonpoly ode
+   {
+    G' = - X*(G + 4.5) + 0.5*exp(-0.05 * t)
+    X' = -0.025*X + 0.013*I
+    I' = -0.093*(I + 0.015) + 0.003472222
+    t' = 1
+    tl' = 1
+   }
+
+   inv
+   {
+    G >= 12
+    t <= 720
+   }
+  }
+ }
+
+ jumps
+ {
+  l1 -> l2
+  guard { G = 2 tl >= 0.2 }
+  reset { tl' := 0 }
+  interval aggregation
+
+  l2 -> l1
+  guard { G = 2 tl >= 0.2 }
+  reset {tl' := 0 }
+  interval aggregation
+
+  l2 -> l3
+  guard { G = 12 tl >= 0.2 }
+  reset { tl' := 0 }
+  interval aggregation
+
+  l3 -> l2
+  guard { G = 12 tl >= 0.2 }
+  reset { tl' := 0 }
+  interval aggregation
+ }
+
+ init
+ {
+  l3
+  {
+   G in [13,14]
+   X in [0,0]
+   I in [0.5,0.5]
+   t in [0,0]
+   tl in [0,0]
+  }
+ }
+}

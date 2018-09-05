@@ -1,0 +1,35 @@
+continuous reachability
+{
+ state var x,y,z
+
+ setting
+ {
+  fixed steps 0.003
+  time 6.5
+  remainder estimation 1e-8
+  QR precondition
+  gnuplot octagon x,y
+  adaptive orders { min {x:6 , y:6, z:6} , max {x:10 , y:10, z:10} }
+  cutoff 1e-10
+  precision 53
+  output Lorentz
+  print on
+ }
+
+ poly ode 2
+ {
+  x' = 10 * (y - x)
+  y' = x * ( 28 - z ) - y
+  z' = x * y - 2.6667*z
+ }
+
+ init
+ {
+  x in [14.999,15.001]
+  y in [14.999,15.001]
+  z in [35.999,36.001]
+ }
+}
+
+
+

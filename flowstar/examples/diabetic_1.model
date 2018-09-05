@@ -1,0 +1,298 @@
+hybrid reachability
+{
+ state var G,X,I,T
+
+ setting
+ {
+  fixed steps 0.1
+  time 360
+  remainder estimation { G:[-0.1,0.1], X:[-1e-2,1e-2], I:[-1e-2,1e-2], T:[-1e-5,1e-5] }
+  identity precondition
+  gnuplot interval T,G
+  adaptive orders { min {G:2 , X:2 , I:2, T:1} , max {G:5 , X:5 , I:5, T:1} }
+  cutoff 1e-10
+  precision 53
+  output diabetic_1
+  max jumps 6
+  print on
+ }
+
+ modes
+ {
+  l1 # G <= 4 and t <= 30
+  {
+   poly ode 2
+   {
+    G' = -0.01*G - X*(G + 4.5) + 0.0167*T
+    X' = -0.025*X + 0.000013*I
+    I' = -0.093*(I + 15) + 0.083*8.333
+    T' = 1
+   }
+
+   inv
+   {
+    G <= 4
+    T <= 30
+   }
+  }
+
+  l2 # 4 <= G <= 8 and t <= 30
+  {
+   poly ode 2
+   {
+    G' = -0.01*G - X*(G + 4.5) + 0.0167*T
+    X' = -0.025*X + 0.000013*I
+    I' = -0.093*(I + 15) + 0.083*8.333*(G - 3)
+    T' = 1
+   }
+
+   inv
+   {
+    G <= 8
+    -G <= -4
+    T <= 30
+   }
+  }
+
+  l3 # G >= 8 and t <= 30
+  {
+   poly ode 2
+   {
+    G' = -0.01*G - X*(G + 4.5) + 0.0167*T
+    X' = -0.025*X + 0.000013*I
+    I' = -0.093*(I + 15) + 0.083*41.67
+    T' = 1
+   }
+
+   inv
+   {
+    -G <= -8
+    T <= 30
+   }
+  }
+
+  l4 # G <= 4 and 30 <= t <= 120
+  {
+   poly ode 2
+   {
+    G' = -0.01*G - X*(G + 4.5) + 0.0056*(120 - T)
+    X' = -0.025*X + 0.000013*I
+    I' = -0.093*(I + 15) + 0.083*8.333
+    T' = 1
+   }
+
+   inv
+   {
+    G <= 4
+    T <= 120
+    -T <= -30
+   }
+  }
+
+  l5 # 4 <= G <= 8 and 30 <= t <= 120
+  {
+   poly ode 2
+   {
+    G' = -0.01*G - X*(G + 4.5) + 0.0056*(120 - T)
+    X' = -0.025*X + 0.000013*I
+    I' = -0.093*(I + 15) + 0.083*8.333*(G - 3)
+    T' = 1
+   }
+
+   inv
+   {
+    G <= 8
+    -G <= -4
+    T <= 120
+    -T <= -30
+   }
+  }
+
+  l6 # G >= 8 and 30 <= t <= 120
+  {
+   poly ode 2
+   {
+    G' = -0.01*G - X*(G + 4.5) + 0.0056*(120 - T)
+    X' = -0.025*X + 0.000013*I
+    I' = -0.093*(I + 15) + 0.083*41.67
+    T' = 1
+   }
+
+   inv
+   {
+    -G <= -8
+    T <= 120
+    -T <= -30
+   }
+  }
+
+  l7 # G <= 4 and t >= 120
+  {
+   poly ode 2
+   {
+    G' = -0.01*G - X*(G + 4.5)
+    X' = -0.025*X + 0.000013*I
+    I' = -0.093*(I + 15) + 0.083*8.333
+    T' = 1
+   }
+
+   inv
+   {
+    G <= 4
+    -T <= -120
+   }
+  }
+
+  l8 # 4 <= G <= 8 and t >= 120
+  {
+   poly ode 2
+   {
+    G' = -0.01*G - X*(G + 4.5)
+    X' = -0.025*X + 0.000013*I
+    I' = -0.093*(I + 15) + 0.083*8.333*(G - 3)
+    T' = 1
+   }
+
+   inv
+   {
+    G <= 8
+    -G <= -4
+    -T <= -120
+   }
+  }
+
+  l9 # G >= 8 and t >= 120
+  {
+   poly ode 2
+   {
+    G' = -0.01*G - X*(G + 4.5)
+    X' = -0.025*X + 0.000013*I
+    I' = -0.093*(I + 15) + 0.083*41.67
+    T' = 1
+   }
+
+   inv
+   {
+    -G <= -8
+    -T <= -120
+   }
+  }
+ }
+
+ jumps
+ {
+  l1 -> l2 # G <= 4  ->  4 <= G <= 8 when t <= 30
+  guard { -G <= -4 }
+  reset {}
+  parallelotope aggregation {}
+
+  l2 -> l1 # 4 <= G <= 8  ->  G <= 4 when t <= 30
+  guard { G <= 4 }
+  reset {}
+  parallelotope aggregation {}
+
+  l2 -> l3 # 4 <= G <= 8  ->  G >= 8 when t <= 30
+  guard { -G <= -8 }
+  reset {}
+  parallelotope aggregation {}
+
+  l3 -> l2 # G >= 8  ->  4 <= G <= 8 when t <= 30
+  guard { -G <= -8 }
+  reset {}
+  parallelotope aggregation {}
+
+  l4 -> l5 #  G <= 4  ->  4 <= G <= 8 when 30 <= t <= 120
+  guard { -G <= -4 }
+  reset {}
+  parallelotope aggregation {}
+
+  l5 -> l4 # 4 <= G <= 8  ->  G <= 4 when 30 <= t <= 120
+  guard { G <= 4 }
+  reset {}
+  parallelotope aggregation {}
+
+  l5 -> l6 # 4 <= G <= 8  ->  G >= 8 when 30 <= t <= 120
+  guard { -G <= -8 }
+  reset {}
+  parallelotope aggregation {}
+
+  l6 -> l5 # G >= 8  ->  4 <= G <= 8 when 30 <= t <= 120
+  guard { G <= 8 }
+  reset {}
+  parallelotope aggregation {}
+
+  l7 -> l8 #  G <= 4  ->  4 <= G <= 8 when t >= 120
+  guard { -G <= -4 }
+  reset {}
+  parallelotope aggregation {}
+
+  l8 -> l7 # 4 <= G <= 8 -> G <= 4 when t >= 120
+  guard { G <= 4 }
+  reset {}
+  parallelotope aggregation {}
+
+  l8 -> l9 # 4 <= G <= 8  ->  G >= 8 when t >= 120
+  guard { -G <= -8 }
+  reset {}
+  parallelotope aggregation {}
+
+  l9 -> l8 # G >= 8  ->  4 <= G <= 8 when t >= 120
+  guard { G <= 8 }
+  reset {}
+  parallelotope aggregation {}
+
+  l1 -> l4 # t <= 30  ->  30 <= t <= 120 when G <= 4
+  guard { -T <= -30 }
+  reset {}
+  parallelotope aggregation {}
+
+  l2 -> l5 # t <= 30  ->  30 <= t <= 120 when 4 <= G <= 8
+  guard { -T <= -30 }
+  reset {}
+  parallelotope aggregation {}
+
+  l3 -> l6 # t <= 30  ->  30 <= t <= 120 when G >= 8
+  guard { -T <= -30 }
+  reset {}
+  parallelotope aggregation {}
+
+  l4 -> l7 # 30 <= t <= 120  ->  t >= 120 when G <= 4
+  guard { -T <= -120 }
+  reset {}
+  parallelotope aggregation {}
+
+  l5 -> l8 # 30 <= t <= 120  ->  t >= 120 when 4 <= G <= 8
+  guard { -T <= -120 }
+  reset {}
+  parallelotope aggregation {}
+
+  l6 -> l9 # 30 <= t <= 120  ->  t >= 120 when G >= 8
+  guard { -T <= -120 }
+  reset {}
+  parallelotope aggregation {}
+ }
+
+ init
+ {
+  l1
+  {
+   G in [-2 , 2]
+   X in [0 , 0]
+   I in [-0.1 , 0.1]
+   T in [0 , 0]
+  }
+ }
+}
+
+unsafe set
+{
+ l1 { G >= 20 }
+ l2 { G >= 20 }
+ l3 { G >= 20 }
+ l4 { G >= 20 }
+ l5 { G >= 20 }
+ l6 { G >= 20 }
+ l7 { G >= 20 }
+ l8 { G >= 20 }
+ l9 { G >= 20 }
+}

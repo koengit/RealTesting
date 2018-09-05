@@ -1,0 +1,120 @@
+hybrid reachability
+{
+ state var v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,t
+
+ setting
+ {
+  adaptive steps { min 0.0002 , max 0.005 }
+  time 2.5
+  remainder estimation 1e-5
+  identity precondition
+  gnuplot octagon t,v1
+  fixed orders 4
+  cutoff 1e-7
+  precision 53
+  output line_circuit_10
+  max jumps 50
+  print on
+ }
+
+ modes
+ {
+  l1
+  {
+   nonpoly ode
+   {
+    v1' = -2*v1 + v2 + 2 - exp(5*v1) - exp(5*(v1 - v2)) + 2
+    v2' = -2*v2 + v1 + v3 + exp(5*(v1 - v2)) - exp(5*(v2 - v3))
+    v3' = -2*v3 + v2 + v4 + exp(5*(v2 - v3)) - exp(5*(v3 - v4))
+    v4' = -2*v4 + v3 + v5 + exp(5*(v3 - v4)) - exp(5*(v4 - v5))
+    v5' = -2*v5 + v4 + v6 + exp(5*(v4 - v5)) - exp(5*(v5 - v6))
+    v6' = -2*v6 + v5 + v7 + exp(5*(v5 - v6)) - exp(5*(v6 - v7))
+    v7' = -2*v7 + v6 + v8 + exp(5*(v6 - v7)) - exp(5*(v7 - v8))
+    v8' = -2*v8 + v7 + v9 + exp(5*(v7 - v8)) - exp(5*(v8 - v9))
+    v9' = -2*v9 + v8 + v10 + exp(5*(v8 - v9)) - exp(5*(v9 - v10))
+    v10' = -v10 + v9 - 1 + exp(5*(v9 - v10))
+    t' = 1
+   }
+   inv
+   {
+    t <= 1
+   }
+  }
+
+  l2
+  {
+   nonpoly ode
+   {
+    v1' = -2*v1 + v2 + 2 - exp(5*v1) - exp(5*(v1 - v2)) + (3 - t)
+    v2' = -2*v2 + v1 + v3 + exp(5*(v1 - v2)) - exp(5*(v2 - v3))
+    v3' = -2*v3 + v2 + v4 + exp(5*(v2 - v3)) - exp(5*(v3 - v4))
+    v4' = -2*v4 + v3 + v5 + exp(5*(v3 - v4)) - exp(5*(v4 - v5))
+    v5' = -2*v5 + v4 + v6 + exp(5*(v4 - v5)) - exp(5*(v5 - v6))
+    v6' = -2*v6 + v5 + v7 + exp(5*(v5 - v6)) - exp(5*(v6 - v7))
+    v7' = -2*v7 + v6 + v8 + exp(5*(v6 - v7)) - exp(5*(v7 - v8))
+    v8' = -2*v8 + v7 + v9 + exp(5*(v7 - v8)) - exp(5*(v8 - v9))
+    v9' = -2*v9 + v8 + v10 + exp(5*(v8 - v9)) - exp(5*(v9 - v10))
+    v10' = -v10 + v9 - 1 + exp(5*(v9 - v10))
+    t' = 1
+   }
+   inv
+   {
+    t >= 1
+    t <= 2
+   }
+  }
+
+  l3
+  {
+   nonpoly ode
+   {
+    v1' = -2*v1 + v2 + 2 - exp(5*v1) - exp(5*(v1 - v2)) + 1
+    v2' = -2*v2 + v1 + v3 + exp(5*(v1 - v2)) - exp(5*(v2 - v3))
+    v3' = -2*v3 + v2 + v4 + exp(5*(v2 - v3)) - exp(5*(v3 - v4))
+    v4' = -2*v4 + v3 + v5 + exp(5*(v3 - v4)) - exp(5*(v4 - v5))
+    v5' = -2*v5 + v4 + v6 + exp(5*(v4 - v5)) - exp(5*(v5 - v6))
+    v6' = -2*v6 + v5 + v7 + exp(5*(v5 - v6)) - exp(5*(v6 - v7))
+    v7' = -2*v7 + v6 + v8 + exp(5*(v6 - v7)) - exp(5*(v7 - v8))
+    v8' = -2*v8 + v7 + v9 + exp(5*(v7 - v8)) - exp(5*(v8 - v9))
+    v9' = -2*v9 + v8 + v10 + exp(5*(v8 - v9)) - exp(5*(v9 - v10))
+    v10' = -v10 + v9 - 1 + exp(5*(v9 - v10))
+    t' = 1
+   }
+   inv
+   {
+    t >= 2
+   }
+  }
+ }
+
+ jumps
+ {
+  l1 -> l2
+  guard { t = 1 }
+  reset { }
+  interval aggregation
+
+  l2 -> l3
+  guard { t = 2 }
+  reset { }
+  interval aggregation
+ }
+
+ init
+ {
+  l1
+  {
+   v1 in [0,0.02]
+   v2 in [0,0.02]
+   v3 in [0,0.02]
+   v4 in [0,0.02]
+   v5 in [0,0.02]
+   v6 in [0,0.02]
+   v7 in [0,0.02]
+   v8 in [0,0.02]
+   v9 in [0,0.02]
+   v10 in [0,0.02]
+   t in [0,0]
+  }
+ }
+}

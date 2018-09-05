@@ -1,0 +1,32 @@
+continuous reachability
+{
+ state var x,y
+
+ setting
+ {
+  fixed steps 0.02
+  time 7
+  remainder estimation 1e-5
+  QR precondition
+  gnuplot octagon x,y
+  adaptive orders { min 4, max 6 }
+#  adaptive orders { min {x:4 , y:4} , max {x:6 , y:6} }
+#  fixed orders 5
+  cutoff 1e-12
+  precision 53
+  output vanderpol
+  print on
+ }
+
+ poly ode 2
+ {
+  x' =  y
+  y' =  y - x - x^2*y
+ }
+
+ init
+ {
+  x in [1.25 , 1.55]
+  y in [2.25 , 2.35]
+ }
+}

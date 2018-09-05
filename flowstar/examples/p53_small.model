@@ -1,0 +1,39 @@
+continuous reachability
+{
+ state var x1, x2, x3, x4, x5, x6, t
+
+ setting
+ {
+  fixed steps 0.01
+  time 10
+  remainder estimation 1e-1
+  identity precondition
+  matlab interval t, x1
+  fixed orders 5
+  cutoff 1e-9
+  precision 100
+  output p53_small
+  print on
+ }
+
+ nonpoly ode { 200 }  # the symbolic remainder senario which can only be used with "poly ode 1" and "nonpoly ode"
+ {
+    x1' = (0.5 - 9.963e-6*x1*x5 - 1.925e-5*x1)*3600
+    x2' = (1.5e-3 + 1.5e-2*(x1^2/(547600 + x1^2)) - 8e-4*x2)*3600
+    x3' = (8e-4*x2 - 1.444e-4*x3)*3600
+    x4' = (1.66e-2*x3 - 9e-4*x4)*3600
+    x5' = (9e-4*x4 - 1.66e-7*x4*x4 - 9.963e-6*x5*x6)*3600
+    x6' = (0.5 - 3.209e-5*x6 - 9.963e-6*x5*x6)*3600
+    t'  = 1
+ }
+
+ init
+ {
+   x1 in [19.9,20.1]
+   x2 in [19.9,20.1]
+   x3 in [19.9,20.1]
+   x4 in [19.9,20.1]
+   x5 in [19.9,20.1]
+   x6 in [19.9,20.1]
+ }
+}

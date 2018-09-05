@@ -1,0 +1,29 @@
+continuous reachability
+{
+ state var Ii, G
+ setting
+ {
+  fixed steps 0.2
+  time 150
+  remainder estimation 1e-4
+  QR precondition
+  gnuplot octagon Ii,G
+  adaptive orders { min {Ii:4, G:4} , max {Ii:6, G:6} }
+  cutoff 1e-20
+  precision 53
+  output lacoperon
+  print on
+ }
+
+ nonpoly ode
+ {
+  Ii' = -0.4 * Ii^2 *( (0.0003*G^2 + 0.008) / (0.2*Ii^2 + 2.00001) ) + 0.012 + (0.0000003 * (54660 - 5000.006*Ii) * (0.2*Ii^2 + 2.00001)) / (0.00036*G^2 + 0.00960018 + 0.000000018*Ii^2)
+  G' = -0.0006*G^2 + (0.000000006*G^2 + 0.00000016) / (0.2*Ii^2 + 2.00001) + (0.0015015*Ii*(0.2*Ii^2 + 2.00001)) / (0.00036*G^2 + 0.00960018 + 0.000000018*Ii^2)
+ }
+
+ init
+ {
+  Ii in [1,2]
+  G in [25,26]
+ }
+}

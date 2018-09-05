@@ -1,0 +1,33 @@
+continuous reachability
+{
+ state var x,y,z
+
+ setting
+ {
+  fixed steps 0.02
+  time 6
+  remainder estimation 1e-4
+  QR precondition
+  matlab octagon x,y
+#  adaptive orders {min 4, max 6}
+  fixed orders 6
+  cutoff 1e-12
+  precision 53
+  output Roessler
+  print on
+ }
+
+ poly ode 1
+ {
+  x' =  -(y+z)
+  y' =  x + 0.2*y
+  z' = 0.2 + z*(x - 5.7)
+ }
+
+ init
+ {
+  x in [-0.2,-0.2]
+  y in [-8.6,-8.2]
+  z in [-0.2,0.2]
+ }
+}

@@ -1,0 +1,74 @@
+hybrid reachability
+{
+ state var G, X, I, t
+
+ setting
+ {
+  fixed steps 0.05
+  time 720
+  remainder estimation 1e-2
+  identity precondition
+  gnuplot octagon t,G
+  adaptive orders { min 2 , max 5 }
+  cutoff 1e-12
+  precision 53
+  output glucose_control_III
+  max jumps 10
+  print on
+ }
+
+ modes
+ {
+  l1
+  {
+   nonpoly ode
+   {
+    G' = - X*(G + 4.5) + 0.5*exp(-0.05 * t)
+    X' = -0.025*X + 0.013*I
+    I' = -0.093*(I + 0.015) + 0.00138889*G*(0.41 - 0.0094*G)
+    t' = 1
+   }
+
+   inv
+   {
+    t <= 180
+   }
+  }
+
+  l2
+  {
+   nonpoly ode
+   {
+    G' = - X*(G + 4.5) + 0.5*exp(-0.05 * t)
+    X' = -0.025*X + 0.013*I
+    I' = -0.093*(I + 0.015) + 4.5*0.0001395*(1 + 0.222222*G)
+    t' = 1
+   }
+
+   inv
+   {
+    t >= 180
+    t <= 720
+   }
+  }
+ }
+
+ jumps
+ {
+  l1 -> l2
+  guard { t = 180 }
+  reset { }
+  interval aggregation
+ }
+
+ init
+ {
+  l1
+  {
+   G in [13,14]
+   X in [0,0]
+   I in [0.5,0.5]
+   t in [0,0]
+  }
+ }
+}

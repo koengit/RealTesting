@@ -1,0 +1,33 @@
+continuous reachability
+{
+ state var x1, x2, y1, y2
+ setting
+ {
+  fixed steps 0.01
+  time 7
+  remainder estimation 1e-5
+  identity precondition
+  gnuplot octagon x1,y1
+  fixed orders 7
+  cutoff 1e-10
+  precision 53
+  output coupledVanderPol
+  print on
+ }
+
+ poly ode 3
+ {
+  x1' = y1
+  y1' = (1 - x1^2)*y1 - x1 + (x2 - x1)
+  x2' = y2
+  y2' = (1 - x2^2)*y2 - x2 + (x1 - x2)
+ }
+
+ init
+ {
+  x1 in [1.25 , 1.55]
+  y1 in [2.25 , 2.35]
+  x2 in [1.25 , 1.55]
+  y2 in [2.25 , 2.35]
+ }
+}

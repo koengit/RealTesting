@@ -1,0 +1,30 @@
+continuous reachability
+{
+ state var x, y
+ setting
+ {
+  fixed steps 0.03
+  time 15
+  remainder estimation 1e-5
+  QR precondition
+  gnuplot octagon x,y
+  adaptive orders {min 3, max 6}
+  cutoff 1e-12
+  precision 53
+  output Brusselator
+  print on
+ }
+
+ poly ode 1
+ {
+  x' = 1 + x*(x*y - 2.5)
+  y' = x*(1.5 - x*y)
+ }
+
+ init
+ {
+  x in [0.8,1]
+  y in [0,0.2]
+ }
+}
+

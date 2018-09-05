@@ -1,0 +1,277 @@
+hybrid reachability
+{
+ state var x,y,f8a_f4a_x1,f8a_f4a_x2,f8a_f4a_x3,f8a_x1,f8a_f4b_x1,f8a_f4b_x2,
+   f8a_f4b_x3,x1,f8b_f4a_x1,f8b_f4a_x2,f8b_f4a_x3,f8b_x1,f8b_f4b_x1,f8b_f4b_x2,f8b_f4b_x3,
+   x2,f8c_f4a_x1,f8c_f4a_x2,f8c_f4a_x3,f8c_x1,f8c_f4b_x1,f8c_f4b_x2,f8c_f4b_x3,x3,f8d_f4a_x1,
+   f8d_f4a_x2,f8d_f4a_x3,f8d_x1,f8d_f4b_x1,f8d_f4b_x2,f8d_f4b_x3,z
+
+ setting
+ {
+  fixed steps 0.05
+  time 10
+  remainder estimation 1e-5
+  identity precondition
+  gnuplot octagon x,y
+  fixed orders 5
+  cutoff 1e-6
+  precision 53
+  output filtered_oscillator_32
+  max jumps 20
+  print on
+ }
+
+ modes
+ {
+  l1
+  {
+   lti ode      # integrator for Linear Time-Invariant (LTI) dynamics
+   {
+    x' = -2*x + 1.4 + [-0.01,0.01]
+    y' = -y - 0.7 + [-0.01,0.01]
+    f8a_f4a_x1' = 5*x - 5*f8a_f4a_x1 + [-0.01,0.01]
+    f8a_f4a_x2' = 5*f8a_f4a_x1 - 5*f8a_f4a_x2 + [-0.01,0.01]
+    f8a_f4a_x3' = 5*f8a_f4a_x2 - 5*f8a_f4a_x3 + [-0.01,0.01]
+    f8a_x1' = 5*f8a_f4a_x3 - 5*f8a_x1 + [-0.01,0.01]
+    f8a_f4b_x1' = 5*f8a_x1 - 5*f8a_f4b_x1 + [-0.01,0.01]
+    f8a_f4b_x2' = 5*f8a_f4b_x1 - 5*f8a_f4b_x2 + [-0.01,0.01]
+    f8a_f4b_x3' = 5*f8a_f4b_x2 - 5*f8a_f4b_x3 + [-0.01,0.01]
+    x1' = 5*f8a_f4b_x3 - 5*x1 + [-0.01,0.01]
+    f8b_f4a_x1' = 5*x1 - 5*f8b_f4a_x1 + [-0.01,0.01]
+    f8b_f4a_x2' = 5*f8b_f4a_x1 - 5*f8b_f4a_x2 + [-0.01,0.01]
+    f8b_f4a_x3' = 5*f8b_f4a_x2 - 5*f8b_f4a_x3 + [-0.01,0.01]
+    f8b_x1' = 5*f8b_f4a_x3 - 5*f8b_x1 + [-0.01,0.01]
+    f8b_f4b_x1' = 5*f8b_x1 - 5*f8b_f4b_x1 + [-0.01,0.01]
+    f8b_f4b_x2' = 5*f8b_f4b_x1 - 5*f8b_f4b_x2 + [-0.01,0.01]
+    f8b_f4b_x3' = 5*f8b_f4b_x2 - 5*f8b_f4b_x3 + [-0.01,0.01]
+    x2' = 5*f8b_f4b_x3 - 5*x2 + [-0.01,0.01]
+    f8c_f4a_x1' = 5*x2 - 5*f8c_f4a_x1 + [-0.01,0.01]
+    f8c_f4a_x2' = 5*f8c_f4a_x1 - 5*f8c_f4a_x2 + [-0.01,0.01]
+    f8c_f4a_x3' = 5*f8c_f4a_x2 - 5*f8c_f4a_x3 + [-0.01,0.01]
+    f8c_x1' = 5*f8c_f4a_x3 - 5*f8c_x1 + [-0.01,0.01]
+    f8c_f4b_x1' = 5*f8c_x1 - 5*f8c_f4b_x1 + [-0.01,0.01]
+    f8c_f4b_x2' = 5*f8c_f4b_x1 - 5*f8c_f4b_x2 + [-0.01,0.01]
+    f8c_f4b_x3' = 5*f8c_f4b_x2 - 5*f8c_f4b_x3 + [-0.01,0.01]
+    x3' = 5*f8c_f4b_x3 - 5*x3 + [-0.01,0.01]
+    f8d_f4a_x1' = 5*x3 - 5*f8d_f4a_x1 + [-0.01,0.01]
+    f8d_f4a_x2' = 5*f8d_f4a_x1 - 5*f8d_f4a_x2 + [-0.01,0.01]
+    f8d_f4a_x3' = 5*f8d_f4a_x2 - 5*f8d_f4a_x3 + [-0.01,0.01]
+    f8d_x1' = 5*f8d_f4a_x3 - 5*f8d_x1 + [-0.01,0.01]
+    f8d_f4b_x1' = 5*f8d_x1 - 5*f8d_f4b_x1 + [-0.01,0.01]
+    f8d_f4b_x2' = 5*f8d_f4b_x1 - 5*f8d_f4b_x2 + [-0.01,0.01]
+    f8d_f4b_x3' = 5*f8d_f4b_x2 - 5*f8d_f4b_x3 + [-0.01,0.01]
+    z' = 5*f8d_f4b_x3 - 5*z + [-0.01,0.01]
+   }
+
+   inv
+   {
+    x <= 0
+    y + 0.714286*x >= 0
+   }
+  }
+
+  l2
+  {
+   lti ode
+   {
+    x' = -2*x - 1.4 + [-0.01,0.01]
+    y' = -y + 0.7 + [-0.01,0.01]
+    f8a_f4a_x1' = 5*x - 5*f8a_f4a_x1 + [-0.01,0.01]
+    f8a_f4a_x2' = 5*f8a_f4a_x1 - 5*f8a_f4a_x2 + [-0.01,0.01]
+    f8a_f4a_x3' = 5*f8a_f4a_x2 - 5*f8a_f4a_x3 + [-0.01,0.01]
+    f8a_x1' = 5*f8a_f4a_x3 - 5*f8a_x1 + [-0.01,0.01]
+    f8a_f4b_x1' = 5*f8a_x1 - 5*f8a_f4b_x1 + [-0.01,0.01]
+    f8a_f4b_x2' = 5*f8a_f4b_x1 - 5*f8a_f4b_x2 + [-0.01,0.01]
+    f8a_f4b_x3' = 5*f8a_f4b_x2 - 5*f8a_f4b_x3 + [-0.01,0.01]
+    x1' = 5*f8a_f4b_x3 - 5*x1 + [-0.01,0.01]
+    f8b_f4a_x1' = 5*x1 - 5*f8b_f4a_x1 + [-0.01,0.01]
+    f8b_f4a_x2' = 5*f8b_f4a_x1 - 5*f8b_f4a_x2 + [-0.01,0.01]
+    f8b_f4a_x3' = 5*f8b_f4a_x2 - 5*f8b_f4a_x3 + [-0.01,0.01]
+    f8b_x1' = 5*f8b_f4a_x3 - 5*f8b_x1 + [-0.01,0.01]
+    f8b_f4b_x1' = 5*f8b_x1 - 5*f8b_f4b_x1 + [-0.01,0.01]
+    f8b_f4b_x2' = 5*f8b_f4b_x1 - 5*f8b_f4b_x2 + [-0.01,0.01]
+    f8b_f4b_x3' = 5*f8b_f4b_x2 - 5*f8b_f4b_x3 + [-0.01,0.01]
+    x2' = 5*f8b_f4b_x3 - 5*x2 + [-0.01,0.01]
+    f8c_f4a_x1' = 5*x2 - 5*f8c_f4a_x1 + [-0.01,0.01]
+    f8c_f4a_x2' = 5*f8c_f4a_x1 - 5*f8c_f4a_x2 + [-0.01,0.01]
+    f8c_f4a_x3' = 5*f8c_f4a_x2 - 5*f8c_f4a_x3 + [-0.01,0.01]
+    f8c_x1' = 5*f8c_f4a_x3 - 5*f8c_x1 + [-0.01,0.01]
+    f8c_f4b_x1' = 5*f8c_x1 - 5*f8c_f4b_x1 + [-0.01,0.01]
+    f8c_f4b_x2' = 5*f8c_f4b_x1 - 5*f8c_f4b_x2 + [-0.01,0.01]
+    f8c_f4b_x3' = 5*f8c_f4b_x2 - 5*f8c_f4b_x3 + [-0.01,0.01]
+    x3' = 5*f8c_f4b_x3 - 5*x3 + [-0.01,0.01]
+    f8d_f4a_x1' = 5*x3 - 5*f8d_f4a_x1 + [-0.01,0.01]
+    f8d_f4a_x2' = 5*f8d_f4a_x1 - 5*f8d_f4a_x2 + [-0.01,0.01]
+    f8d_f4a_x3' = 5*f8d_f4a_x2 - 5*f8d_f4a_x3 + [-0.01,0.01]
+    f8d_x1' = 5*f8d_f4a_x3 - 5*f8d_x1 + [-0.01,0.01]
+    f8d_f4b_x1' = 5*f8d_x1 - 5*f8d_f4b_x1 + [-0.01,0.01]
+    f8d_f4b_x2' = 5*f8d_f4b_x1 - 5*f8d_f4b_x2 + [-0.01,0.01]
+    f8d_f4b_x3' = 5*f8d_f4b_x2 - 5*f8d_f4b_x3 + [-0.01,0.01]
+    z' = 5*f8d_f4b_x3 - 5*z + [-0.01,0.01]
+   }
+
+   inv
+   {
+    x <= 0
+    y + 0.714286*x <= 0
+   }
+  }
+
+  l3
+  {
+   lti ode
+   {
+    x' = -2*x + 1.4 + [-0.01,0.01]
+    y' = -y - 0.7 + [-0.01,0.01]
+    f8a_f4a_x1' = 5*x - 5*f8a_f4a_x1 + [-0.01,0.01]
+    f8a_f4a_x2' = 5*f8a_f4a_x1 - 5*f8a_f4a_x2 + [-0.01,0.01]
+    f8a_f4a_x3' = 5*f8a_f4a_x2 - 5*f8a_f4a_x3 + [-0.01,0.01]
+    f8a_x1' = 5*f8a_f4a_x3 - 5*f8a_x1 + [-0.01,0.01]
+    f8a_f4b_x1' = 5*f8a_x1 - 5*f8a_f4b_x1 + [-0.01,0.01]
+    f8a_f4b_x2' = 5*f8a_f4b_x1 - 5*f8a_f4b_x2 + [-0.01,0.01]
+    f8a_f4b_x3' = 5*f8a_f4b_x2 - 5*f8a_f4b_x3 + [-0.01,0.01]
+    x1' = 5*f8a_f4b_x3 - 5*x1 + [-0.01,0.01]
+    f8b_f4a_x1' = 5*x1 - 5*f8b_f4a_x1 + [-0.01,0.01]
+    f8b_f4a_x2' = 5*f8b_f4a_x1 - 5*f8b_f4a_x2 + [-0.01,0.01]
+    f8b_f4a_x3' = 5*f8b_f4a_x2 - 5*f8b_f4a_x3 + [-0.01,0.01]
+    f8b_x1' = 5*f8b_f4a_x3 - 5*f8b_x1 + [-0.01,0.01]
+    f8b_f4b_x1' = 5*f8b_x1 - 5*f8b_f4b_x1 + [-0.01,0.01]
+    f8b_f4b_x2' = 5*f8b_f4b_x1 - 5*f8b_f4b_x2 + [-0.01,0.01]
+    f8b_f4b_x3' = 5*f8b_f4b_x2 - 5*f8b_f4b_x3 + [-0.01,0.01]
+    x2' = 5*f8b_f4b_x3 - 5*x2 + [-0.01,0.01]
+    f8c_f4a_x1' = 5*x2 - 5*f8c_f4a_x1 + [-0.01,0.01]
+    f8c_f4a_x2' = 5*f8c_f4a_x1 - 5*f8c_f4a_x2 + [-0.01,0.01]
+    f8c_f4a_x3' = 5*f8c_f4a_x2 - 5*f8c_f4a_x3 + [-0.01,0.01]
+    f8c_x1' = 5*f8c_f4a_x3 - 5*f8c_x1 + [-0.01,0.01]
+    f8c_f4b_x1' = 5*f8c_x1 - 5*f8c_f4b_x1 + [-0.01,0.01]
+    f8c_f4b_x2' = 5*f8c_f4b_x1 - 5*f8c_f4b_x2 + [-0.01,0.01]
+    f8c_f4b_x3' = 5*f8c_f4b_x2 - 5*f8c_f4b_x3 + [-0.01,0.01]
+    x3' = 5*f8c_f4b_x3 - 5*x3 + [-0.01,0.01]
+    f8d_f4a_x1' = 5*x3 - 5*f8d_f4a_x1 + [-0.01,0.01]
+    f8d_f4a_x2' = 5*f8d_f4a_x1 - 5*f8d_f4a_x2 + [-0.01,0.01]
+    f8d_f4a_x3' = 5*f8d_f4a_x2 - 5*f8d_f4a_x3 + [-0.01,0.01]
+    f8d_x1' = 5*f8d_f4a_x3 - 5*f8d_x1 + [-0.01,0.01]
+    f8d_f4b_x1' = 5*f8d_x1 - 5*f8d_f4b_x1 + [-0.01,0.01]
+    f8d_f4b_x2' = 5*f8d_f4b_x1 - 5*f8d_f4b_x2 + [-0.01,0.01]
+    f8d_f4b_x3' = 5*f8d_f4b_x2 - 5*f8d_f4b_x3 + [-0.01,0.01]
+    z' = 5*f8d_f4b_x3 - 5*z + [-0.01,0.01]
+   }
+
+   inv
+   {
+    x >= 0
+    y + 0.714286*x >= 0
+   }
+  }
+
+  l4
+  {
+   lti ode
+   {
+    x' = -2*x - 1.4 + [-0.01,0.01]
+    y' = -y + 0.7 + [-0.01,0.01]
+    f8a_f4a_x1' = 5*x - 5*f8a_f4a_x1 + [-0.01,0.01]
+    f8a_f4a_x2' = 5*f8a_f4a_x1 - 5*f8a_f4a_x2 + [-0.01,0.01]
+    f8a_f4a_x3' = 5*f8a_f4a_x2 - 5*f8a_f4a_x3 + [-0.01,0.01]
+    f8a_x1' = 5*f8a_f4a_x3 - 5*f8a_x1 + [-0.01,0.01]
+    f8a_f4b_x1' = 5*f8a_x1 - 5*f8a_f4b_x1 + [-0.01,0.01]
+    f8a_f4b_x2' = 5*f8a_f4b_x1 - 5*f8a_f4b_x2 + [-0.01,0.01]
+    f8a_f4b_x3' = 5*f8a_f4b_x2 - 5*f8a_f4b_x3 + [-0.01,0.01]
+    x1' = 5*f8a_f4b_x3 - 5*x1 + [-0.01,0.01]
+    f8b_f4a_x1' = 5*x1 - 5*f8b_f4a_x1 + [-0.01,0.01]
+    f8b_f4a_x2' = 5*f8b_f4a_x1 - 5*f8b_f4a_x2 + [-0.01,0.01]
+    f8b_f4a_x3' = 5*f8b_f4a_x2 - 5*f8b_f4a_x3 + [-0.01,0.01]
+    f8b_x1' = 5*f8b_f4a_x3 - 5*f8b_x1 + [-0.01,0.01]
+    f8b_f4b_x1' = 5*f8b_x1 - 5*f8b_f4b_x1 + [-0.01,0.01]
+    f8b_f4b_x2' = 5*f8b_f4b_x1 - 5*f8b_f4b_x2 + [-0.01,0.01]
+    f8b_f4b_x3' = 5*f8b_f4b_x2 - 5*f8b_f4b_x3 + [-0.01,0.01]
+    x2' = 5*f8b_f4b_x3 - 5*x2 + [-0.01,0.01]
+    f8c_f4a_x1' = 5*x2 - 5*f8c_f4a_x1 + [-0.01,0.01]
+    f8c_f4a_x2' = 5*f8c_f4a_x1 - 5*f8c_f4a_x2 + [-0.01,0.01]
+    f8c_f4a_x3' = 5*f8c_f4a_x2 - 5*f8c_f4a_x3 + [-0.01,0.01]
+    f8c_x1' = 5*f8c_f4a_x3 - 5*f8c_x1 + [-0.01,0.01]
+    f8c_f4b_x1' = 5*f8c_x1 - 5*f8c_f4b_x1 + [-0.01,0.01]
+    f8c_f4b_x2' = 5*f8c_f4b_x1 - 5*f8c_f4b_x2 + [-0.01,0.01]
+    f8c_f4b_x3' = 5*f8c_f4b_x2 - 5*f8c_f4b_x3 + [-0.01,0.01]
+    x3' = 5*f8c_f4b_x3 - 5*x3 + [-0.01,0.01]
+    f8d_f4a_x1' = 5*x3 - 5*f8d_f4a_x1 + [-0.01,0.01]
+    f8d_f4a_x2' = 5*f8d_f4a_x1 - 5*f8d_f4a_x2 + [-0.01,0.01]
+    f8d_f4a_x3' = 5*f8d_f4a_x2 - 5*f8d_f4a_x3 + [-0.01,0.01]
+    f8d_x1' = 5*f8d_f4a_x3 - 5*f8d_x1 + [-0.01,0.01]
+    f8d_f4b_x1' = 5*f8d_x1 - 5*f8d_f4b_x1 + [-0.01,0.01]
+    f8d_f4b_x2' = 5*f8d_f4b_x1 - 5*f8d_f4b_x2 + [-0.01,0.01]
+    f8d_f4b_x3' = 5*f8d_f4b_x2 - 5*f8d_f4b_x3 + [-0.01,0.01]
+    z' = 5*f8d_f4b_x3 - 5*z + [-0.01,0.01]
+   }
+
+   inv
+   {
+    x >= 0
+    y + 0.714286*x <= 0
+   }
+  }
+ }
+
+ jumps
+ {
+  l3 -> l4
+  guard { y + 0.714286*x = 0   x >= 0 }
+  reset { }
+  interval aggregation
+
+  l4 -> l2
+  guard { x = 0   0.714286*x + y <= 0 }
+  reset { }
+  interval aggregation
+
+  l2 -> l1
+  guard { y + 0.714286*x = 0   x <= 0 }
+  reset { }
+  interval aggregation
+
+  l1 -> l3
+  guard { x = 0  0.714286*x + y >= 0 }
+  reset { }
+  interval aggregation
+ }
+
+ init
+ {
+  l3
+  {
+   x in [0.2,0.4]
+   y in [-0.1,0.1]
+   z in [-0.1,0.1]
+   f8a_f4a_x1 in [-0.1,0.1]
+   f8a_f4a_x2 in [-0.1,0.1]
+   f8a_f4a_x3 in [-0.1,0.1]
+   f8a_x1 in [-0.1,0.1]
+   f8a_f4b_x1 in [-0.1,0.1]
+   f8a_f4b_x2 in [-0.1,0.1]
+   f8a_f4b_x3 in [-0.1,0.1]
+   x1 in [-0.1,0.1]
+   f8b_f4a_x1 in [-0.1,0.1]
+   f8b_f4a_x2 in [-0.1,0.1]
+   f8b_f4a_x3 in [-0.1,0.1]
+   f8b_x1 in [-0.1,0.1]
+   f8b_f4b_x1 in [-0.1,0.1]
+   f8b_f4b_x2 in [-0.1,0.1]
+   f8b_f4b_x3 in [-0.1,0.1]
+   x2 in [-0.1,0.1]
+   f8c_f4a_x1 in [-0.1,0.1]
+   f8c_f4a_x2 in [-0.1,0.1]
+   f8c_f4a_x3 in [-0.1,0.1]
+   f8c_x1 in [-0.1,0.1]
+   f8c_f4b_x1 in [-0.1,0.1]
+   f8c_f4b_x2 in [-0.1,0.1]
+   f8c_f4b_x3 in [-0.1,0.1]
+   x3 in [-0.1,0.1]
+   f8d_f4a_x1 in [-0.1,0.1]
+   f8d_f4a_x2 in [-0.1,0.1]
+   f8d_f4a_x3 in [-0.1,0.1]
+   f8d_x1 in [-0.1,0.1]
+   f8d_f4b_x1 in [-0.1,0.1]
+   f8d_f4b_x2 in [-0.1,0.1]
+   f8d_f4b_x3 in [-0.1,0.1]
+  }
+ }
+}

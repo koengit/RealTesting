@@ -34,7 +34,6 @@ data Step =
    If Expr Step Step     -- if-then-else
  | Assume Expr Step      -- check precondition
  | Assert Expr Step      -- check postcondition
- | Par Step Step         -- parallel composition. invariant: each variable can only be updated by one substep
  | Update (Map Var Expr) -- update variables
  deriving (Eq, Typeable, Data)
 

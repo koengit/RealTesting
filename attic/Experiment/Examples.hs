@@ -13,7 +13,7 @@ isSorted :: [Int] -> VBool
 isSorted xs = andP $ zipWith (<=%) xs (tail xs)
 
 example_palindrome :: [Int] -> Maybe [Int]
-example_palindrome xs = satisfy xs 3000 100000 prop_palindrome 
+example_palindrome xs = satisfy xs 3000 100000 prop_palindrome
 
 example_ascending :: Maybe [Int]
 example_ascending = satisfy (reverse ([5 .. 16] ++ [1 .. 7]))

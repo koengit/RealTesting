@@ -29,7 +29,7 @@ sizeBounded s params = norm $ case s of
   0 -> return (1, Leaf)
   _ -> do
     (sl, left)  <- sizeBounded (s - 1) params
-    (sr, right) <- sizeBounded (s - sl) params 
+    (sr, right) <- sizeBounded (s - sl) params
     freq [(1, (1, Leaf)), (poly params s, (sl + sr, Node () left right))]
 
 quality :: Ord a => T Double a -> Double

@@ -82,7 +82,7 @@ swap L = H
 swap H = L
 
 lub :: Label -> Label -> Label
-lub l l' 
+lub l l'
   | l == l'   = l
   | otherwise = H
 
@@ -97,7 +97,7 @@ data MachineState = MachineState {
 
 instance Arbitrary MachineState where
   arbitrary = MachineState <$>
-                 arbitrary <*> 
+                 arbitrary <*>
                  arbitrary <*>
                  arbitrary <*>
                  arbitrary
@@ -131,9 +131,9 @@ step_naive st
                               []     -> Failed
                               (x:xs) -> Ok $ st { pc    = pc st + 1
                                                 , stack = xs }
-                  
+
                   Load  -> case stack st of
-                              []      -> Failed 
+                              []      -> Failed
                               ((x, l):xs)  ->
                                 if x >= 0 then
                                   Ok $ st { pc = pc st + 1
@@ -172,7 +172,7 @@ halts step p = go (machine p)
   where
     go m = case step m of
       Halted -> true
-      Failed -> false 
+      Failed -> false
       Ok ms' -> true &&+ go ms'
 
 indist_value :: LInt -> LInt -> VBool
@@ -210,7 +210,7 @@ prop_EENI' :: (MachineState -> Possibility)
            -> Property
 prop_EENI' step m0 m1 =
   forAll (hillClimb 10 (const False) (Program []) (halts step)) $
-    \ (Program p)-> 
+    \ (Program p)->
       let mak0 = mkMach m0
           mak1 = mkMach m1
           mkMach m = MachineState { pc = 0

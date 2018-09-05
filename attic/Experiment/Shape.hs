@@ -35,7 +35,7 @@ reconstruct (Nested _ ss) ds = splitBy (map flatten ss) ds
 class HasShape a where
   shapeOf   :: a -> Shape
   fromRn    :: Shape -> [Double] -> a
-  measure   :: a -> [Double] 
+  measure   :: a -> [Double]
 
 {- Laws:
   fromRn (shapeOf a) (measure a) == a

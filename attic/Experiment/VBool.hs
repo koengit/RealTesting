@@ -56,7 +56,7 @@ norm (VBool x) | x == 0    = false
 (||+) :: VBool -> VBool -> VBool
 (VBool l) ||+ (VBool r)
   | l > 0 && r > 0 = VBool $ l + r
-  | l < 0 && r < 0 = VBool $ l + r 
+  | l < 0 && r < 0 = VBool $ l + r
   | otherwise      = VBool $ max l r
 
 nt :: VBool -> VBool

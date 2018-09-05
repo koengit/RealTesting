@@ -24,7 +24,7 @@ falsifyWithTrace a delta it prop =
       shapeOfa     = shapeOf a
       eps          = 0.1
       (v, tr)      = patternSearch
-                      it 
+                      it
                       initialPoint
                       delta
                       eps

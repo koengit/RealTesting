@@ -733,19 +733,20 @@ ppExp _ (Const x) = text (shortest (show x) (printf "%.5f" x))
       | otherwise = y
 ppExp n (Plus e1 e2) =
   maybeParens (n > 4) $
-    sep [
-      ppExp 4 e1,
-      -- a + -b => a-b
-      -- a + (-b+c) => a - b + c
-      case e2 of
-        Negate e3 ->
-          text "-" <+> ppExp 5 e3
-        Plus (Negate e3) e4 ->
-          text "-" <+> ppExp 4 (Plus e3 e4)
-        _ ->
-          text "+" <+> ppExp 4 e2]
-ppExp n (Times e1 e2) =
-  ppAssoc n "*" 6 e1 e2
+    fsep $
+      (case e1 of Negate{} -> ppTerm "-" e1; _ -> ppExp 4 e1):
+      map (ppTerm "+") pos ++
+      map (ppTerm "-") neg
+  where
+    (pos, neg) = terms e2
+    ppTerm s e = text s <+> ppExp 4 e
+ppExp n e@Times{} =
+  maybeParens (n > 6) $
+  fsep $ punctuate (text " *") $
+  map (ppExp 7) $
+    [Const k | k /= 1] ++ es
+  where
+    (k, es) = factors e
 ppExp n (Power e (Const (-1))) =
   ppUnary n "1/" 7 e
 ppExp n (Power e1 e2) =

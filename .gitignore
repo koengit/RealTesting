@@ -1,3 +1,6 @@
 .*.sw*
 cabal.sandbox.config
 .cabal-sandbox
+*.xy
+*.in
+*.pdf

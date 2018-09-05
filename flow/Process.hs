@@ -57,7 +57,7 @@ data Expr =
  | Cond Expr Expr Expr
  | Min Expr Expr
  | Max Expr Expr
- | Old Expr                -- previous value of expression
+ | Old Expr Expr           -- previous value of expression; first argument: initial value
  | IntegralReset Expr Expr -- first argument: quantity to integrate; second argument: reset if true
  | Deriv Expr
  deriving (Eq, Ord, Typeable, Data)
@@ -125,7 +125,7 @@ exprs :: Data a => a -> [Expr]
 exprs = concatMap f . childrenBi
   where
     -- See note above
-    f (Old e) = map Old (f e)
+    f (Old initial e) = f initial ++ map (Old initial) (f e)
     f e = e:concatMap f (children e)
 
 -- Replace all occurrences of an expression with another one in a value.
@@ -144,8 +144,9 @@ replace e1 e2 = descendBi (f e1 e2)
   where
     f e1 e2 e | e == e1 = e2
     -- See note above
-    f (Old e1) (Old e2) (Old e) =
-      Old (f e1 e2 e)
+    f e1@(Old initial1 e1') e2@(Old initial2 e2') (Old initial e)
+      | initial1 == initial =
+        Old (f e1 e2 initial) (f e1' e2' e)
     -- This handles the case e.g. f (Old e1) e2 (Old (e1+x)) -> e2+Old x,
     -- which is necessary for compatibility with exprs
     f e1 e2 e@Old{} =
@@ -159,9 +160,9 @@ replace e1 e2 = descendBi (f e1 e2)
 -- Move Old inwards so that the top-level constructor is not an Old,
 -- unless the expression is Old^n (Var x) or Old^n Delta
 hideOld :: Expr -> Expr
-hideOld (Old Delta) = Old Delta
-hideOld (Old (Var x)) = Old (Var x)
-hideOld (Old e) = descend Old (hideOld e)
+hideOld (Old initial Delta) = Old initial Delta
+hideOld (Old initial (Var x)) = Old initial (Var x)
+hideOld (Old initial e) = descend (Old initial) (hideOld e)
 hideOld e = e
 
 ----------------------------------------------------------------------
@@ -317,7 +318,10 @@ simplifyExpr :: Expr -> Expr
 simplifyExpr = fixpoint (transformBi simp)
   where
     simp e | Just x <- evalM Nothing Map.empty e = constant x
-    simp (Old e) | Just x <- evalM Nothing Map.empty e = constant x
+    simp (Old e1 e2)
+      | Just x <- evalM Nothing Map.empty e1,
+        Just y <- evalM Nothing Map.empty e2,
+        e1 == e2 = constant x
     simp (Cond (Bool True) e _) = e
     simp (Cond (Bool False) _ e) = e
     simp (Cond _ e e') | e == e' = e
@@ -373,9 +377,11 @@ propagateBool cond val = descendBi (propagate cond val)
     propagate cond False e | implies e cond = Bool False
     -- Keep track of the nesting level of Old.
     -- See note above 'exprs' for more info.
-    propagate (Old cond) val (Old e) =
-      Old (propagate cond val e)
-    propagate cond val (Old e) = Old e
+    propagate cond@(Old initial cond') val (Old initial' e)
+      | initial == initial' =
+        Old (propagate cond val initial')
+            (propagate cond' val e)
+    propagate cond val (Old initial e) = Old initial e
     propagate cond val e = descend (propagate cond val) e
 
     -- This is pretty crappy but helps with abs somewhat
@@ -425,9 +431,9 @@ eliminateState =
     --     * p is a process which will compute x
     --     * e is the lowering of the expression
     lowerExpr :: Expr -> Maybe (Var -> (Process, Expr))
-    lowerExpr (Old e) =
+    lowerExpr (Old initial e) =
       Just $ \x ->
-      (continuous x 0 e,
+      (continuous x initial e,
        -- e.g. y := Old e becomes
        --      y := x & x := e
        -- which has the right effect because all updates are performed
@@ -490,7 +496,7 @@ eliminateMinMax = transformBi f
 eliminateDeriv :: Process -> Process
 eliminateDeriv = transformBi f
   where
-    f (Deriv e) = (e - Old e) / Old Delta
+    f (Deriv e) = (e - Old 0 e) * Old 0 (1 / Delta)
     f e = e
 
 -- Separates a sum into positive and negative parts
@@ -772,8 +778,8 @@ ppExp n (Min e1 e2) =
   ppFunction "min" [e1, e2]
 ppExp n (Max e1 e2) =
   ppFunction "max" [e1, e2]
-ppExp n (Old e) =
-  ppFunction "old" [e]
+ppExp n (Old initial e) =
+  ppFunction "old" [initial, e]
 ppExp n (IntegralReset e (Bool False)) =
   ppFunction "integral" [e]
 ppExp n (IntegralReset e reset) =

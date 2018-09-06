@@ -94,7 +94,7 @@ property =
     continuous stablefor 0 (cond (var goalTemp ==? old 0 (var goalTemp)) (var stablefor+1) 0)
 
 run :: Valued f => Process -> f Env
-run p = vmap (last . fst) $ simulate 1 test (lower stdPrims p)
+run p = vmap (last . fst) $ simulate 1 test p
   where
     test = replicate 10 (temp 25) ++ replicate 90 (temp 10)
     temp k = Map.singleton goalTemp (DoubleValue 25)

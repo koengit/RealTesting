@@ -24,6 +24,6 @@ check =
           (ite (var state ==? 2 &&& var position >=?  100) (set ok (bool True)) skip)))
 
 test :: Valued f => [Double] -> f Env
-test vals = vmap (last . fst) (simulate 1 envs (lower stdPrims (ship & check)))
+test vals = vmap (last . fst) (simulate 1 envs (ship & check))
   where
     envs = [Map.singleton acceleration (DoubleValue x) | x <- vals]

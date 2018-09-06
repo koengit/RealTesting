@@ -79,7 +79,7 @@ controlleR (k_p,k_i,k_d) =
  where
   err = var goalTemp - var roomTemp
 
-  changeGoalTemp = abs (var goalTemp - old 0 (var goalTemp)) /=? 1
+  changeGoalTemp = abs (var goalTemp - old 0 (var goalTemp)) >=? 1
 
 cgood :: Control
 --cgood = (3.997591176733649e-3,8.194771741046325e-5,5.618398605936785e-3)
@@ -87,7 +87,10 @@ cgood :: Control
 cgood = (1.2e-2,1.1446889636416996e-4,5.0e-3)
 
 run :: Valued f => Process -> f Env
-run p = vmap (last . fst) $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (lower stdPrims p)
+run p = vmap (last . fst) $ simulate 1 test (lower stdPrims p)
+  where
+    test = replicate 10 (temp 25) ++ replicate 90 (temp 10)
+    temp k = Map.singleton goalTemp (DoubleValue 25)
 
 test = runIdentity $ run (system cgood)
 tesT = runIdentity $ run (systeM cgood)

@@ -3,7 +3,7 @@
 import Process
 import qualified Data.Map as Map
 import Data.Functor.Identity
-import Val(mapVal)
+import Val(Val(..), mapVal)
 
 --------------------------------------------------------------------------------
 -- heater + plant
@@ -86,10 +86,13 @@ cgood :: Control
 --cgood = (5.0e-3,1.1446889636416996e-4,5.0e-3)
 cgood = (1.2e-2,1.1446889636416996e-4,5.0e-3)
 
-test = last $ fst $ runIdentity $ simulate 1 (replicate 1000 (Map.singleton goalTemp (DoubleValue 25))) (system cgood)
-tesT = last $ fst $ runIdentity $ simulate 1 (replicate 1000 (Map.singleton goalTemp (DoubleValue 25))) (systeM cgood)
+test = last $ fst $ runIdentity $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (system cgood)
+tesT = last $ fst $ runIdentity $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (systeM cgood)
 
-test' = mapVal (last . fst) $ simulate 1 (replicate 10 (Map.singleton goalTemp (DoubleValue 25))) (system cgood)
-tesT' = mapVal (last . fst) $ simulate 1 (replicate 10 (Map.singleton goalTemp (DoubleValue 25))) (systeM cgood)
+test' = mapVal (last . fst) $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (system cgood)
+tesT' = mapVal (last . fst) $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (systeM cgood)
 
-main = print test'
+main =
+  sequence_ [putStrLn (show v ++ ": " ++ show k) | (k, v) <- xs]
+  where
+    Val xs = test'

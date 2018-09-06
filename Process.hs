@@ -694,21 +694,18 @@ execStep delta env (Update m) =
 
 simulate :: Valued f => Double -> [Env] -> Process -> f ([Env], Result)
 simulate delta inputs process =
-  loop Map.empty [] (Map.empty:inputs) (start process':repeat (step process'))
+  vmap (\(_, history, err) -> (reverse history, err)) $
+  foldl sim (val (Map.empty, [], OK)) (zip (Map.empty:inputs) (start process':repeat (step process')))
   where
     process' = lower process
 
-    loop _ history [] _ = val (reverse history, OK)
-    loop env history (inp:inps) (step:steps) =
-      vifThenElse (vmap (\x -> snd x == OK) res)
-        (vprune (vbind res (\(env, _) -> loop env (env:history) inps steps)))
-        (vmap (\(env, err) -> (reverse (env:history), err)) res)
-
-      -- case execStep delta (Map.union inp env) step of
-      --   (env, OK) -> loop env (env:history) inps steps
-      --   (env, err) -> (reverse (env:history), err)
-      where
-        res = execStep delta (Map.union inp env) step
+    sim state (input, step) =
+      vprune $ vbind state $ \(env, history, err) ->
+        case err of
+          OK ->
+            vmap (\(env, res) -> (env, env:history, res)) $
+              execStep delta (Map.union input env) step
+          _ -> val (env, history, err)
 
 ----------------------------------------------------------------------
 -- Pretty-printing

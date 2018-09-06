@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Main where
+module Val where
 
 import qualified Data.Map as M
 import Data.List( sort, sortBy, intercalate )
@@ -10,6 +10,7 @@ import Test.QuickCheck
 import Badness
 import System.Process
 import GHC.Generics( Generic )
+import qualified Process
 
 newtype Val a = Val [(a,VBool)]
  deriving ( Eq, Ord, Show )
@@ -138,6 +139,19 @@ propVal (Val bs) = foldr1 (&&+) [ if b then v else nt v | (b,v) <- bs ]
 
 propVal0 :: Val Bool -> VBool
 propVal0 (Val bs) = head [ if isTrue v then good 5 else bad 5 | (True,v) <- bs ]
+
+--------------------------------------------------------------------------------
+
+instance Process.Valued Val where
+  val = val
+  vmap = mapVal
+  vlift = liftVal
+  vbind x f = smash (mapVal f x)
+  vfail = error
+  vifThenElse = ifThenElse
+  vprune = forget
+  veq = (==?)
+  vgeq = (>=?)
 
 --------------------------------------------------------------------------------
 

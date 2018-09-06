@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, PatternGuards, DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, PatternGuards, DeriveDataTypeable, DefaultSignatures, TupleSections #-}
 module Process where
 
 import Data.Map(Map)
@@ -16,6 +16,8 @@ import Text.Printf
 import Utils
 import Data.Data
 import Control.Monad
+import Control.Arrow((***))
+import Data.Functor.Identity
 
 ----------------------------------------------------------------------
 -- Processes
@@ -317,10 +319,10 @@ simplifyStep =
 simplifyExpr :: Expr -> Expr
 simplifyExpr = fixpoint (transformBi simp)
   where
-    simp e | Just x <- evalM Nothing Map.empty e = constant x
+    simp e | Just x <- eval Nothing Map.empty e = constant x
     simp (Old e1 e2)
-      | Just x <- evalM Nothing Map.empty e1,
-        Just y <- evalM Nothing Map.empty e2,
+      | Just x <- eval Nothing Map.empty e1,
+        Just y <- eval Nothing Map.empty e2,
         e1 == e2 = constant x
     simp (Cond (Bool True) e _) = e
     simp (Cond (Bool False) _ e) = e
@@ -558,121 +560,155 @@ conjuncts e = do
 ----------------------------------------------------------------------
 
 type Env = Map Var Value
-data Value = DoubleValue Double | BoolValue Bool deriving (Eq, Show)
+data Value = DoubleValue Double | BoolValue Bool deriving (Eq, Ord, Show)
 
-double :: Monad m => Value -> m Double
-double (DoubleValue x) = return x
-double _ = fail "type error: got bool but expected double"
+class Valued f where
+  -- Very much like Monad, but with if-then-else and Ord constraints
+  val :: a -> f a
+  vmap :: Ord b => (a -> b) -> f a -> f b
+  vlift :: Ord c => (a -> b -> c) -> f a -> f b -> f c
+  vfail :: String -> f a
+  vbind :: Ord b => f a -> (a -> f b) -> f b
+  vifThenElse :: Ord a => f Bool -> f a -> f a -> f a
+  vprune :: Ord a => f a -> f a
+  vprune = id
+  veq :: f Double -> f Double -> f Bool
+  vgeq :: f Double -> f Double -> f Bool
 
-bool :: Monad m => Value -> m Bool
-bool (BoolValue x) = return x
-bool _ = fail "type error: got double but expected bool"
+  -- A default instance for monads.
+  default val :: Monad f => a -> f a
+  val = return
+  default vmap :: (Monad f, Ord b) => (a -> b) -> f a -> f b
+  vmap = fmap
+  default vlift :: (Monad f, Ord c) => (a -> b -> c) -> f a -> f b -> f c
+  vlift = liftM2
+  default vbind :: (Monad f, Ord b) => f a -> (a -> f b) -> f b
+  vbind = (>>=)
+  default vfail :: Monad f => String -> f a
+  vfail = fail
+  default vifThenElse :: Monad f => f Bool -> f a -> f a -> f a
+  vifThenElse mx my mz = do
+    x <- mx
+    if x then my else mz
+  default veq :: f Double -> f Double -> f Bool
+  veq = vlift (==)
+  default vgeq :: f Double -> f Double -> f Bool
+  vgeq = vlift (>=)
+
+vsequence :: (Valued f, Ord a) => [f a] -> f [a]
+vsequence [] = val []
+vsequence (x:xs) = vlift (:) x (vsequence xs)
+
+instance Valued Identity
+instance Valued Maybe
+instance Valued (Either String)
+
+double :: Value -> Double
+double (DoubleValue x) = x
+double _ = error "type error: got bool but expected double"
+
+bool :: Value -> Bool
+bool (BoolValue x) = x
+bool _ = error "type error: got double but expected bool"
 
 constant :: Value -> Expr
 constant (DoubleValue x) = Const x
 constant (BoolValue x) = Bool x
 
-eval :: Double -> Env -> Expr -> Value
-eval delta env e =
-  case evalM (Just delta) env e of
-    Left err -> error ("eval: " ++ err)
-    Right x -> x
-
--- The evaluator is monadic so that we can use it
--- in simplify for constant folding
-evalM :: Monad m => Maybe Double -> Env -> Expr -> m Value
-evalM _ env (Var x) =
+eval :: Valued f => Maybe Double -> Env -> Expr -> f Value
+eval _ env (Var x) =
   case Map.lookup x env of
-    Nothing -> fail ("variable " ++ show x ++ " not bound")
-    Just v -> return v
-evalM mdelta _ Delta =
+    Nothing -> vfail ("variable " ++ show x ++ " not bound")
+    Just v -> val v
+eval mdelta _ Delta =
   case mdelta of
-    Nothing -> fail "delta not defined"
-    Just delta -> return (DoubleValue delta)
-evalM _ _ (Const x) =
-  return (DoubleValue x)
-evalM delta env (Plus e1 e2) =
-  DoubleValue <$> do
-    x <- double =<< evalM delta env e1
-    y <- double =<< evalM delta env e2
-    return (x+y)
-evalM delta env (Times e1 e2) =
-  DoubleValue <$> do
-    x <- double =<< evalM delta env e1
-    y <- double =<< evalM delta env e2
-    return (x*y)
-evalM delta env (Power e1 e2) =
-  DoubleValue <$> do
-    x <- double =<< evalM delta env e1
-    y <- double =<< evalM delta env e2
-    return (x**y)
-evalM delta env (Negate e) =
-  DoubleValue <$> negate <$> (double =<< evalM delta env e)
-evalM delta env (Sin e) =
-  DoubleValue <$> sin <$> (double =<< evalM delta env e)
-evalM delta env (Not e) =
-  BoolValue <$> not <$> (bool =<< evalM delta env e)
-evalM delta env (And e1 e2) =
-  BoolValue <$> do
-    x <- bool =<< evalM delta env e1
-    y <- bool =<< evalM delta env e2
-    return (x && y)
-evalM _ _ (Bool x) =
-  return (BoolValue x)
-evalM delta env (Positive e) =
-  BoolValue <$> (>= 0) <$> (double =<< evalM delta env e)
-evalM delta env (Zero e) =
-  BoolValue <$> (== 0) <$> (double =<< evalM delta env e)
-evalM delta env (Cond e1 e2 e3) = do
-  x <- bool =<< evalM delta env e1
-  if x then
-    evalM delta env e2
-  else
-    evalM delta env e3
-evalM delta env (Min e1 e2) =
-  DoubleValue <$> do
-    x <- double =<< evalM delta env e1
-    y <- double =<< evalM delta env e2
-    return (min x y)
-evalM delta env (Max e1 e2) =
-  DoubleValue <$> do
-    x <- double =<< evalM delta env e1
-    y <- double =<< evalM delta env e2
-    return (max x y)
-evalM _ _ e =
-  fail ("dont't know how to evaluate " ++ show e)
+    Nothing -> vfail "delta not defined"
+    Just delta -> val (DoubleValue delta)
+eval _ _ (Const x) =
+  val (DoubleValue x)
+eval delta env (Plus e1 e2) =
+  vmap DoubleValue $ vlift (+)
+    (vmap double $ eval delta env e1)
+    (vmap double $ eval delta env e2)
+eval delta env (Times e1 e2) =
+  vmap DoubleValue $ vlift (*)
+    (vmap double $ eval delta env e1)
+    (vmap double $ eval delta env e2)
+eval delta env (Power e1 e2) =
+  vmap DoubleValue $ vlift (**)
+    (vmap double $ eval delta env e1)
+    (vmap double $ eval delta env e2)
+eval delta env (Negate e) =
+  vmap (DoubleValue . negate . double) (eval delta env e)
+eval delta env (Sin e) =
+  vmap (DoubleValue . sin . double) (eval delta env e)
+eval delta env (Not e) =
+  vmap (BoolValue . not . bool) (eval delta env e)
+eval delta env (And e1 e2) =
+  vmap BoolValue $ vlift (&&)
+    (vmap bool $ eval delta env e1)
+    (vmap bool $ eval delta env e2)
+eval _ _ (Bool x) =
+  val (BoolValue x)
+eval delta env (Positive e) =
+  vmap BoolValue . flip vgeq (val 0) . vmap double $ (eval delta env e)
+eval delta env (Zero e) =
+  vmap BoolValue . veq (val 0) . vmap double $ (eval delta env e)
+eval delta env (Cond e1 e2 e3) =
+  vifThenElse
+    (vmap bool $ eval delta env e1)
+    (eval delta env e2)
+    (eval delta env e3)
+eval delta env (Min e1 e2) =
+  vmap DoubleValue $ vlift min
+    (vmap double $ eval delta env e1)
+    (vmap double $ eval delta env e2)
+eval delta env (Max e1 e2) =
+  vmap DoubleValue $ vlift max
+    (vmap double $ eval delta env e1)
+    (vmap double $ eval delta env e2)
+eval _ _ e =
+  vfail ("dont't know how to evaluate " ++ show e)
 
 data Result = OK | PreconditionFailed Expr | PostconditionFailed Expr
-  deriving Show
+  deriving (Eq, Ord, Show)
 
-execStep :: Double -> Env -> Step -> (Env, Result)
+execStep :: Valued f => Double -> Env -> Step -> f (Env, Result)
 execStep delta env (If e s1 s2) =
-  if fromJust (bool (eval delta env e))
-  then execStep delta env s1
-  else execStep delta env s2
+  vifThenElse (vmap bool $ eval (Just delta) env e)
+    (execStep delta env s1)
+    (execStep delta env s2)
 execStep delta env (Assume e s) =
-  if fromJust (bool (eval delta env e))
-  then execStep delta env s
-  else (env, PreconditionFailed e)
+  vifThenElse (vmap bool $ eval (Just delta) env e)
+    (execStep delta env s)
+    (val (env, PreconditionFailed e))
 execStep delta env (Assert e s) =
-  if fromJust (bool (eval delta env e))
-  then execStep delta env s
-  else (env, PostconditionFailed e)
+  vifThenElse (vmap bool $ eval (Just delta) env e)
+    (execStep delta env s)
+    (val (env, PostconditionFailed e))
 execStep delta env (Update m) =
   -- N.B. Map.union is left-biased
-  (Map.union (Map.map (eval delta env) m) env, OK)
+  -- Non-valued version: val (Map.union (Map.map (eval (Just delta) env) m) env, OK)
+  vmap (\xs -> (Map.union (Map.fromList xs) env, OK)) $
+    vsequence [ vmap (x,) (eval (Just delta) env y) | (x, y) <- Map.toList m ]
 
-simulate :: Double -> [Env] -> Process -> ([Env], Result)
+simulate :: Valued f => Double -> [Env] -> Process -> f ([Env], Result)
 simulate delta inputs process =
   loop Map.empty [] (Map.empty:inputs) (start process':repeat (step process'))
   where
     process' = lower process
 
-    loop _ history [] _ = (reverse history, OK)
+    loop _ history [] _ = val (reverse history, OK)
     loop env history (inp:inps) (step:steps) =
-      case execStep delta (Map.union inp env) step of
-        (env, OK) -> loop env (env:history) inps steps
-        (env, err) -> (reverse (env:history), err)
+      vifThenElse (vmap (\x -> snd x == OK) res)
+        (vprune (vbind res (\(env, _) -> loop env (env:history) inps steps)))
+        (vmap (\(env, err) -> (reverse (env:history), err)) res)
+
+      -- case execStep delta (Map.union inp env) step of
+      --   (env, OK) -> loop env (env:history) inps steps
+      --   (env, err) -> (reverse (env:history), err)
+      where
+        res = execStep delta (Map.union inp env) step
 
 ----------------------------------------------------------------------
 -- Pretty-printing

@@ -43,17 +43,17 @@ plant = room & heater
   -- and the room temperature
   heater =
     continuous heaterTemp startTemp $
-      weigh [ (1-Var pump,  Var heaterTemp)
-            , (Var pump,    boilerTemp)
-            , (heaterCoeff, Var roomTemp)
+      weigh [ (1-var pump,  var heaterTemp)
+            , (var pump,    boilerTemp)
+            , (heaterCoeff, var roomTemp)
             ]
 
   -- the room temperature is influenced by the heater temperature and the outside
   -- temperature
   room =
     continuous roomTemp startTemp $
-      weigh [ (1,            Var roomTemp)
-            , (heaterCoeff,  Var heaterTemp)
+      weigh [ (1,            var roomTemp)
+            , (heaterCoeff,  var heaterTemp)
             , (outsideCoeff, outsideTemp)
             ]
 
@@ -64,33 +64,33 @@ type Control = (Double, Double, Double)
 controller :: Control -> Process
 controller (k_p,k_i,k_d) =
   continuous pump 0 $ clamp 0 1 $
-      Const k_p * err
-    + Const k_i * integral err
-    + Const k_d * Deriv err
+      double k_p * err
+    + double k_i * integral err
+    + double k_d * deriv err
   where
-    err = Var goalTemp - Var roomTemp
+    err = var goalTemp - var roomTemp
 
 controlleR :: Control -> Process
 controlleR (k_p,k_i,k_d) =
   continuous pump 0 $ clamp 0 1 $
-      Const k_p * err
-    + Const k_i * IntegralReset err changeGoalTemp
-    + Const k_d * Deriv err
+      double k_p * err
+    + double k_i * integralReset err changeGoalTemp
+    + double k_d * deriv err
  where
-  err = Var goalTemp - Var roomTemp
+  err = var goalTemp - var roomTemp
 
-  changeGoalTemp = abs (Var goalTemp - Old 0 (Var goalTemp)) /=? 1
+  changeGoalTemp = abs (var goalTemp - old 0 (var goalTemp)) /=? 1
 
 cgood :: Control
 --cgood = (3.997591176733649e-3,8.194771741046325e-5,5.618398605936785e-3)
 --cgood = (5.0e-3,1.1446889636416996e-4,5.0e-3)
 cgood = (1.2e-2,1.1446889636416996e-4,5.0e-3)
 
-test = last $ fst $ runIdentity $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (system cgood)
-tesT = last $ fst $ runIdentity $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (systeM cgood)
+test = last $ fst $ runIdentity $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (compile (system cgood))
+tesT = last $ fst $ runIdentity $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (compile (systeM cgood))
 
-test' = mapVal (last . fst) $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (system cgood)
-tesT' = mapVal (last . fst) $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (systeM cgood)
+test' = mapVal (last . fst) $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (compile (system cgood))
+tesT' = mapVal (last . fst) $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (compile (systeM cgood))
 
 main =
   sequence_ [putStrLn (show v ++ ": " ++ show k) | (k, v) <- xs]

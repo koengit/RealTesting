@@ -15,6 +15,11 @@ process start step =
     start = start,
     step = step }
 
+-- Do something only on the first step, or only after the first step
+initially, loop :: Step -> Process
+initially p = process p skip
+loop p = process skip p
+
 -- A typeclass for things that can be executed in parallel
 class Par a where
   -- A process that does nothing
@@ -60,7 +65,7 @@ name f = p{locals = locals p + 1}
 set :: Var -> Expr -> Step
 set x e = Update (Map.singleton x e)
 
--- Take a choice
+-- If-then-else
 ite :: Expr -> Step -> Step -> Step
 ite = If
 
@@ -107,11 +112,13 @@ double = Double
 nott :: Expr -> Expr
 nott = Not
 
-andd :: Expr -> Expr -> Expr
-andd = And
+infixr 3 &&&
+(&&&) :: Expr -> Expr -> Expr
+(&&&) = And
 
-orr :: Expr -> Expr -> Expr
-orr x y = nott (nott x `andd` nott y)
+infixr 2 |||
+(|||) :: Expr -> Expr -> Expr
+(|||) x y = nott (nott x &&& nott y)
 
 bool :: Bool -> Expr
 bool = Bool

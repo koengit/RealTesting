@@ -1,27 +1,12 @@
-{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, PatternGuards, DeriveDataTypeable, DefaultSignatures, TupleSections #-}
+-- Simplification.
 module Process.Simplify where
 
-import Data.Map(Map)
 import qualified Data.Map.Strict as Map
-import Data.Set(Set)
-import qualified Data.Set as Set
 import Data.Generics.Uniplate.Data
-import Data.Generics.Str(strStructure)
-import Data.Tuple(swap)
-import Data.Maybe
-import Data.Ord
-import Data.List
-import Text.PrettyPrint.HughesPJClass hiding ((<>), double)
-import qualified Text.PrettyPrint.HughesPJClass
-import Text.Printf
 import Utils
 import Data.Data
-import Control.Monad
-import Control.Arrow((***))
-import Data.Functor.Identity
 import Process.Language
 import Process.Eval
-import Control.Monad.Trans.Cont
 
 -- Do algebraic simplifications and similar
 simplify :: Process -> Process
@@ -36,7 +21,7 @@ simplifyStep =
     simpStep (If (Not e) s1 s2) = If e s2 s1
     simpStep (If (Bool True) e _) = e
     simpStep (If (Bool False) _ e) = e
-    simpStep (If e s s') | s == s' = s
+    simpStep (If _ s s') | s == s' = s
     simpStep (If e s1 s2) =
       If e
         (propagateBool e True s1)
@@ -136,6 +121,7 @@ eliminatePrims prims =
       [] -> p
       (e@(Primitive _ _ es), f):_ ->
         f es (\e' -> replaceGlobal e e' p)
+      _ -> error "unreachable"
 
 eliminateCond :: Process -> Process
 eliminateCond =

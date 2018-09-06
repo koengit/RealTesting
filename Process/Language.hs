@@ -1,24 +1,15 @@
-{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, PatternGuards, DeriveDataTypeable, DefaultSignatures, TupleSections #-}
+-- Basic data types and miscellaneous functions.
+{-# LANGUAGE DeriveDataTypeable #-}
 module Process.Language where
 
 import Data.Map(Map)
-import qualified Data.Map.Strict as Map
 import Data.Set(Set)
 import qualified Data.Set as Set
 import Data.Generics.Uniplate.Data
-import Data.Generics.Str(strStructure)
-import Data.Tuple(swap)
-import Data.Maybe
-import Data.Ord
 import Data.List
-import Text.PrettyPrint.HughesPJClass hiding ((<>), double)
-import qualified Text.PrettyPrint.HughesPJClass
-import Text.Printf
 import Utils
 import Data.Data
 import Control.Monad
-import Control.Arrow((***))
-import Data.Functor.Identity
 
 ----------------------------------------------------------------------
 -- Processes
@@ -142,9 +133,9 @@ both f p = p { start = f (start p), step = f (step p) }
 -- Separates a sum into positive and negative parts
 terms :: Expr -> ([Expr], [Expr])
 terms e
-  | k > 0  = (Double k:pos, neg)
-  | k < 0  = (pos, Double (-k):neg)
-  | k == 0 = (pos, neg)
+  | k > 0     = (Double k:pos, neg)
+  | k < 0     = (pos, Double (-k):neg)
+  | otherwise = (pos, neg)
   where
     (k, pos, neg) = terms' e
 

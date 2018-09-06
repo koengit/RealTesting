@@ -1,3 +1,4 @@
+-- Combinators for building processes and expressions.
 module Process.Combinators where
 
 import Process.Language

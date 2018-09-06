@@ -3,8 +3,7 @@ module Process(
   module Process.Language,
   module Process.Combinators,
   module Process.Eval,
-  module Process.Simplify,
-  module Process.Pretty) where
+  module Process.Simplify) where
 
 import Process.Language(Process, Step, Expr, PrimitiveKind(..), Var(..))
 import Process.Combinators

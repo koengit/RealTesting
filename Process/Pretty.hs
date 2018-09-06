@@ -1,24 +1,10 @@
-{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, PatternGuards, DeriveDataTypeable, DefaultSignatures, TupleSections #-}
+-- Pretty-printing.
 module Process.Pretty where
 
-import Data.Map(Map)
 import qualified Data.Map.Strict as Map
-import Data.Set(Set)
-import qualified Data.Set as Set
-import Data.Generics.Uniplate.Data
-import Data.Generics.Str(strStructure)
-import Data.Tuple(swap)
-import Data.Maybe
-import Data.Ord
-import Data.List
 import Text.PrettyPrint.HughesPJClass hiding ((<>), double)
 import qualified Text.PrettyPrint.HughesPJClass
 import Text.Printf
-import Utils
-import Data.Data
-import Control.Monad
-import Control.Arrow((***))
-import Data.Functor.Identity
 import Process.Language
 
 ----------------------------------------------------------------------
@@ -133,7 +119,7 @@ ppExp n (Cond e1 e2 e3) =
   maybeParens (n > 0) $
     -- else-branch must be atomic to avoid ambiguity
     ppIfThenElse (ppExp 0 e1) (ppExp 0 e2) (ppExp 9 e3)
-ppExp n (Primitive _ name es) =
+ppExp _ (Primitive _ name es) =
   ppFunction name es
 
 ppFunction :: String -> [Expr] -> Doc

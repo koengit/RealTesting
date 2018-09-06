@@ -1,26 +1,13 @@
-{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, PatternGuards, DeriveDataTypeable, DefaultSignatures, TupleSections, StandaloneDeriving, UndecidableInstances #-}
+-- An evaluator. Can be used with Val.
+{-# LANGUAGE DefaultSignatures, TupleSections, FlexibleInstances #-}
 module Process.Eval where
 
 import Data.Map(Map)
 import qualified Data.Map.Strict as Map
-import Data.Set(Set)
-import qualified Data.Set as Set
-import Data.Generics.Uniplate.Data
-import Data.Generics.Str(strStructure)
-import Data.Tuple(swap)
-import Data.Maybe
-import Data.Ord
-import Data.List
-import Text.PrettyPrint.HughesPJClass hiding ((<>), double)
-import qualified Text.PrettyPrint.HughesPJClass
-import Text.Printf
-import Utils
-import Data.Data
 import Control.Monad
-import Control.Arrow((***))
 import Data.Functor.Identity
 import Process.Language
-import Process.Pretty
+import Process.Pretty()
 
 type Env = Map Var Value
 data Value = DoubleValue Double | BoolValue Bool deriving (Eq, Ord, Show)

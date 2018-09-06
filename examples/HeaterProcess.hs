@@ -86,11 +86,15 @@ cgood :: Control
 --cgood = (5.0e-3,1.1446889636416996e-4,5.0e-3)
 cgood = (1.2e-2,1.1446889636416996e-4,5.0e-3)
 
-test = last $ fst $ runIdentity $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (compile (system cgood))
-tesT = last $ fst $ runIdentity $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (compile (systeM cgood))
+run :: Valued f => Process -> f Env
+run p = vmap (last . fst) $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (lower stdPrims p)
 
-test' = mapVal (last . fst) $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (compile (system cgood))
-tesT' = mapVal (last . fst) $ simulate 1 (replicate 300 (Map.singleton goalTemp (DoubleValue 25))) (compile (systeM cgood))
+test = runIdentity $ run (system cgood)
+tesT = runIdentity $ run (systeM cgood)
+
+test', tesT' :: Val Env
+test' = run (system cgood)
+tesT' = run (systeM cgood)
 
 main =
   sequence_ [putStrLn (show v ++ ": " ++ show k) | (k, v) <- xs]

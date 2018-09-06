@@ -19,17 +19,12 @@ import Data.Data
 import Control.Monad
 import Control.Arrow((***))
 import Data.Functor.Identity
-import Process.Core
-import Process.Simplify
+import Process.Language
 
-instance Pretty a => Show (Named a) where
-  show = show . pPrint
-instance Pretty a => Pretty (Named a) where
-  pPrint (Return x) = pPrint x
-  pPrint e =
-    parens $
-      let (p, x) = compileNamed_ e in
-      sep [pPrint x, text "with" <+> pPrint p]
+----------------------------------------------------------------------
+-- Pretty-printing
+----------------------------------------------------------------------
+
 instance Show Process where
   show = show . pPrint
 
@@ -41,10 +36,6 @@ instance Show Expr where
 
 instance Show Var where
   show = show . pPrint
-
-----------------------------------------------------------------------
--- Pretty-printing
-----------------------------------------------------------------------
 
 instance Pretty Process where
   pPrint p =
@@ -72,7 +63,7 @@ instance Pretty Step where
         | (x, e) <- Map.toList m ]
 
 instance Pretty Expr where
-  pPrintPrec _ p = ppExprp p
+  pPrintPrec _ p = ppExp p
 
 instance Pretty Var where
   pPrint (Global x) = text x
@@ -142,16 +133,8 @@ ppExp n (Ite e1 e2 e3) =
   maybeParens (n > 0) $
     -- else-branch must be atomic to avoid ambiguity
     ppIfThenElse (ppExp 0 e1) (ppExp 0 e2) (ppExp 9 e3)
-ppExp n (Min e1 e2) =
-  ppFunction "min" [e1, e2]
-ppExp n (Max e1 e2) =
-  ppFunction "max" [e1, e2]
-ppExp n (IntegralReset e (Bool False)) =
-  ppFunction "integral" [e]
-ppExp n (IntegralReset e reset) =
-  ppFunction "integral" [e, reset]
-ppExp n (Deriv e) =
-  ppFunction "derivative" [e]
+ppExp n (Primitive _ name es) =
+  ppFunction name es
 
 ppFunction :: String -> [Expr] -> Doc
 ppFunction op es =
@@ -177,7 +160,7 @@ ppNonAssoc n op p e1 e2 =
 
 ppSum :: [Expr] -> Expr
 ppSum [] = Double 0
-ppSum xs = foldr1 (+) xs
+ppSum xs = foldr1 Plus xs
 
 ppIfThenElse :: Doc -> Doc -> Doc -> Doc
 ppIfThenElse x y z =

@@ -19,7 +19,8 @@ import Data.Data
 import Control.Monad
 import Control.Arrow((***))
 import Data.Functor.Identity
-import Process.Core
+import Process.Language
+import Process.Pretty
 
 type Env = Map Var Value
 data Value = DoubleValue Double | BoolValue Bool deriving (Eq, Ord, Show)
@@ -119,19 +120,11 @@ eval delta env (Ite e1 e2 e3) =
     (vmap boolVal $ eval delta env e1)
     (eval delta env e2)
     (eval delta env e3)
-eval delta env (Min e1 e2) =
-  vmap DoubleValue $ vlift min
-    (vmap doubleVal $ eval delta env e1)
-    (vmap doubleVal $ eval delta env e2)
-eval delta env (Max e1 e2) =
-  vmap DoubleValue $ vlift max
-    (vmap doubleVal $ eval delta env e1)
-    (vmap doubleVal $ eval delta env e2)
 eval _ _ e =
   vfail ("dont't know how to evaluate " ++ show e)
 
 data Result = OK | PreconditionFailed Expr | PostconditionFailed Expr
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 execStep :: Valued f => Double -> Env -> Step -> f (Env, Result)
 execStep delta env (If e s1 s2) =

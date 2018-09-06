@@ -19,8 +19,9 @@ import Data.Data
 import Control.Monad
 import Control.Arrow((***))
 import Data.Functor.Identity
-import Process.Core
+import Process.Language
 import Process.Eval
+import Control.Monad.Trans.Cont
 
 -- Do algebraic simplifications and similar
 simplify :: Process -> Process
@@ -101,18 +102,20 @@ propagateBool cond val = descendBi (propagate cond val)
   where
     propagate cond True e  | implies cond e = Bool True
     propagate cond False e | implies e cond = Bool False
+    -- Don't descend into temporal operators - it's not sound
+    propagate _ _ e@(Primitive Temporal _ _) = e
     propagate cond val e = descend (propagate cond val) e
 
     -- This is pretty crappy but helps with abs somewhat
     -- (no need for Zero/Zero case because simplify will normalise)
     implies (Zero e1) (Positive e2)
-      | (k, [], []) <- terms' (e2 - e1),
+      | (k, [], []) <- terms' (Plus e2 (Negate e1)),
         k >= 0 = True
     implies (Zero e1) (Positive e2)
-      | (k, [], []) <- terms' (e2 + e1),
+      | (k, [], []) <- terms' (Plus e2 e1),
         k >= 0 = True
     implies (Positive e1) (Positive e2)
-      | (k, [], []) <- terms' (e2 - e1),
+      | (k, [], []) <- terms' (Plus e2 (Negate e1)),
         k >= 0 = True
     implies e1 (And e2 e3) =
       implies e1 e2 && implies e1 e3
@@ -121,19 +124,15 @@ propagateBool cond val = descendBi (propagate cond val)
     implies e1 e2 = e1 == e2
 
 -- Eliminate difficult constructs
-type Prim = [Expr] -> Named Expr
-
 lower :: [(String, Prim)] -> Process -> Process
-lower prims = fixpoint (eliminatePrims prims . eliminateIte . eliminateMinMax . simplify)
+lower prims = fixpoint (eliminatePrims prims . eliminateIte . simplify)
 
 eliminatePrims :: [(String, Prim)] -> Process -> Process
 eliminatePrims prims =
-  transformExprInProcess lower
+  evalCont . transformBiM lower
   where
-    lower (Primitive name es) =
-      case lookup name prims of
-        Nothing -> error ("unknown primitive " ++ name)
-        Just f -> f es
+    lower (Primitive _ name es)
+      | Just f <- lookup name prims = cont (f es)
     lower e = return e
 
 eliminateIte :: Process -> Process
@@ -173,11 +172,4 @@ eliminateIte =
     isBool Positive{} = True
     isBool _ = False
 
-    findItes e = [cond | Ite cond _ _ <- exprs e]
-
-eliminateMinMax :: Process -> Process
-eliminateMinMax = transformBi f
-  where
-    f (Min e1 e2) = Ite (Positive (e1 - e2)) e2 e1
-    f (Max e1 e2) = Ite (Positive (e1 - e2)) e1 e2
-    f e = e
+    findItes e = [cond | Ite cond _ _ <- functionalExprs e]

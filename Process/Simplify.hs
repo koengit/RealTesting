@@ -49,11 +49,11 @@ simplifyExpr :: Expr -> Expr
 simplifyExpr = fixpoint (transformBi simp)
   where
     simp e | Just x <- eval Nothing Map.empty e = constant x
-    simp (Ite (Bool True) e _) = e
-    simp (Ite (Bool False) _ e) = e
-    simp (Ite _ e e') | e == e' = e
-    simp (Ite cond e1 e2) =
-      Ite cond (propagateBool cond True e1) (propagateBool cond False e2)
+    simp (Cond (Bool True) e _) = e
+    simp (Cond (Bool False) _ e) = e
+    simp (Cond _ e e') | e == e' = e
+    simp (Cond cond e1 e2) =
+      Cond cond (propagateBool cond True e1) (propagateBool cond False e2)
     simp (Not (Not e)) = e
     simp (Times (Double x) (Plus y z)) = Plus (Times (Double x) y) (Times (Double x) z)
     simp (Zero e)
@@ -125,7 +125,7 @@ propagateBool cond val = descendBi (propagate cond val)
 
 -- Eliminate difficult constructs
 lower :: [(String, Prim)] -> Process -> Process
-lower prims = fixpoint (eliminatePrims prims . eliminateIte . simplify)
+lower prims = fixpoint (eliminatePrims prims . eliminateCond . simplify)
 
 eliminatePrims :: [(String, Prim)] -> Process -> Process
 eliminatePrims prims =
@@ -137,30 +137,30 @@ eliminatePrims prims =
       (e@(Primitive _ _ es), f):_ ->
         f es (\e' -> replaceGlobal e e' p)
 
-eliminateIte :: Process -> Process
-eliminateIte =
+eliminateCond :: Process -> Process
+eliminateCond =
   fixpoint (both (transformBi f . transformBi introBool . simplifyStep))
   where
     -- Idea: replace
-    --   ... Ite cond e1 e2 ...
+    --   ... Cond cond e1 e2 ...
     -- with
-    --   if cond then [... Ite cond e1 e2 ...] else [... Ite cond e1 e2 ...]
-    -- and then use propagateBool to get rid of the Ite in each branch
+    --   if cond then [... Cond cond e1 e2 ...] else [... Cond cond e1 e2 ...]
+    -- and then use propagateBool to get rid of the Cond in each branch
     f s =
-      case findItes s of
+      case findConds s of
         [] -> s
         cond:_ ->
           If cond
             (propagateBool cond True s)
             (propagateBool cond False s)
-    -- If Ite is the argument to a predicate (And, Not, Zero, Positive),
+    -- If Cond is the argument to a predicate (And, Not, Zero, Positive),
     -- encode it using Boolean connectives:
-    --   P(Ite e1 e2 e3) = (e1 && P(e2)) || (not e1 && P(e3))
+    --   P(Cond e1 e2 e3) = (e1 && P(e2)) || (not e1 && P(e3))
     -- Actually, we produce:
-    --   (e1 && P(Ite e1 e2 e3)) || (not e1 && P(Ite e1 e2 e3))
+    --   (e1 && P(Cond e1 e2 e3)) || (not e1 && P(Cond e1 e2 e3))
     -- and leave it to propagateBool to simplify.
     introBool e
-      | isBool e, cond:_ <- findItes e =
+      | isBool e, cond:_ <- findConds e =
          orr
            (And cond (propagateBool cond True e))
            (And (Not cond) (propagateBool cond False e))
@@ -174,4 +174,4 @@ eliminateIte =
     isBool Positive{} = True
     isBool _ = False
 
-    findItes e = [cond | Ite cond _ _ <- functionalExprs e]
+    findConds e = [cond | Cond cond _ _ <- functionalExprs e]

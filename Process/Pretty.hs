@@ -129,7 +129,7 @@ ppExp n (Zero e) =
   ppAssoc n "=" 3 (ppSum pos) (ppSum neg)
   where
     (pos, neg) = terms e
-ppExp n (Ite e1 e2 e3) =
+ppExp n (Cond e1 e2 e3) =
   maybeParens (n > 0) $
     -- else-branch must be atomic to avoid ambiguity
     ppIfThenElse (ppExp 0 e1) (ppExp 0 e2) (ppExp 9 e3)

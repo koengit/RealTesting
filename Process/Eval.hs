@@ -115,7 +115,7 @@ eval delta env (Positive e) =
   vmap BoolValue . flip vgeq (val 0) . vmap doubleVal $ (eval delta env e)
 eval delta env (Zero e) =
   vmap BoolValue . veq (val 0) . vmap doubleVal $ (eval delta env e)
-eval delta env (Ite e1 e2 e3) =
+eval delta env (Cond e1 e2 e3) =
   vifThenElse
     (vmap boolVal $ eval delta env e1)
     (eval delta env e2)

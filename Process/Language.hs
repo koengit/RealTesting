@@ -55,7 +55,7 @@ data Expr =
  | Bool Bool
  | Positive Expr -- e >= 0
  | Zero Expr     -- e == 0
- | Ite Expr Expr Expr -- can be lowered with eliminateIte
+ | Cond Expr Expr Expr -- can be lowered with eliminateCond
    -- Primitive which must be lowered before evaluation
  | Primitive PrimitiveKind String [Expr]
  deriving (Eq, Ord, Typeable, Data)

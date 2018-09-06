@@ -14,18 +14,19 @@ weigh :: Fractional a => [(a,a)] -> a
 weigh axs = sum [ a*x | (a,x) <- axs ] / sum [ a | (a,_) <- axs ]
 
 -- variables
-goalTemp, roomTemp, heaterTemp, pump :: Var
+goalTemp, roomTemp, heaterTemp, pump, ok :: Var
 goalTemp = Global "goalTemp"
 roomTemp = Global "roomTemp"
 heaterTemp = Global "heaterTemp"
 pump = Global "pump"
+ok = Global "ok"
 
 -- the system
 system :: Control -> Process
-system control = plant & controller control
+system control = plant & controller control & property
 
 systeM :: Control -> Process
-systeM control = plant & controlleR control
+systeM control = plant & controlleR control & property
 
 -- the plant
 -- input: pump, output: roomTemp
@@ -85,6 +86,12 @@ cgood :: Control
 --cgood = (3.997591176733649e-3,8.194771741046325e-5,5.618398605936785e-3)
 --cgood = (5.0e-3,1.1446889636416996e-4,5.0e-3)
 cgood = (1.2e-2,1.1446889636416996e-4,5.0e-3)
+
+property :: Process
+property =
+  name $ \stablefor ->
+    continuous ok true (var ok &&& (var stablefor <=? 50 ||| abs (var goalTemp - var roomTemp) <=? 1)) &
+    continuous stablefor 0 (cond (var goalTemp ==? old 0 (var goalTemp)) (var stablefor+1) 0)
 
 run :: Valued f => Process -> f Env
 run p = vmap (last . fst) $ simulate 1 test (lower stdPrims p)

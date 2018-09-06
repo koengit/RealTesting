@@ -96,7 +96,7 @@ exprs = universeBi
 functionalExprs :: Data a => a -> [Expr]
 functionalExprs = concatMap f . childrenBi
   where
-    f e = 
+    f e =
       e:
       case e of
         Primitive Temporal _ _ -> []

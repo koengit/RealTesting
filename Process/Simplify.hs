@@ -129,11 +129,13 @@ lower prims = fixpoint (eliminatePrims prims . eliminateIte . simplify)
 
 eliminatePrims :: [(String, Prim)] -> Process -> Process
 eliminatePrims prims =
-  evalCont . transformBiM lower
-  where
-    lower (Primitive _ name es)
-      | Just f <- lookup name prims = cont (f es)
-    lower e = return e
+  fixpoint $ \p ->
+    case [ (e, f)
+         | e@(Primitive _ name _) <- universeBi p,
+           Just f <- [lookup name prims] ] of
+      [] -> p
+      (e@(Primitive _ _ es), f):_ ->
+        f es (\e' -> replaceGlobal e e' p)
 
 eliminateIte :: Process -> Process
 eliminateIte =

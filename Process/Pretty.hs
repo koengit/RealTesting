@@ -39,7 +39,7 @@ instance Pretty Step where
     hang (text "assume") 2 (pPrint e) $$
     pPrint s
   pPrint (Assert e s) =
-    hang (text "e") 2 (pPrint e) $$
+    hang (text "assert") 2 (pPrint e) $$
     pPrint s
   pPrint (Update m)
     | Map.null m = text "skip"

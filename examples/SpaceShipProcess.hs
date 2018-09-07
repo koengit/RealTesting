@@ -13,7 +13,7 @@ ship = continuous position 0 (integral (integral (var acceleration)))
 check :: Process
 check =
   name $ \state ->
-    initially (set state (double 0) & set ok (bool False)) &
+    initially (set state (double 0)) &
     loop (
       ite (var state ==? 0 &&& var position >=?  100)
         (set state 1)

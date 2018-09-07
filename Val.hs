@@ -12,7 +12,7 @@ import System.Process
 import GHC.Generics( Generic )
 import qualified Process
 
-newtype Val a = Val [(a,VBool)]
+newtype Val a = Val { vals :: [(a,VBool)] }
  deriving ( Eq, Ord, Show )
 
 val :: a -> Val a

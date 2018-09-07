@@ -7,9 +7,6 @@ acceleration = Global "acceleration"
 position :: Var
 position = Global "position"
 
-ok :: Var
-ok = Global "ok"
-
 ship :: Process
 ship = continuous position 0 (integral (integral (var acceleration)))
 
@@ -21,9 +18,9 @@ check =
       ite (var state ==? 0 &&& var position >=?  100)
         (set state 1)
         (ite (var state ==? 1 &&& var position <=? -100) (set state 2)
-          (ite (var state ==? 2 &&& var position >=?  100) (set ok (bool True)) skip)))
+          (assert (var position <=? 100))))
 
-test :: Valued f => [Double] -> f Env
-test vals = vmap (last . fst) (simulate 1 envs (ship & check))
+test :: Valued f => [Double] -> f ([Env], Result)
+test vals = simulate 1 envs (ship & check)
   where
     envs = [Map.singleton acceleration (DoubleValue x) | x <- vals]

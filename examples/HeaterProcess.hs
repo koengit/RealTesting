@@ -14,12 +14,11 @@ weigh :: Fractional a => [(a,a)] -> a
 weigh axs = sum [ a*x | (a,x) <- axs ] / sum [ a | (a,_) <- axs ]
 
 -- variables
-goalTemp, roomTemp, heaterTemp, pump, ok :: Var
+goalTemp, roomTemp, heaterTemp, pump :: Var
 goalTemp = Global "goalTemp"
 roomTemp = Global "roomTemp"
 heaterTemp = Global "heaterTemp"
 pump = Global "pump"
-ok = Global "ok"
 
 -- the system
 system :: Control -> Process
@@ -90,11 +89,11 @@ cgood = (1.2e-2,1.1446889636416996e-4,5.0e-3)
 property :: Process
 property =
   name $ \stablefor ->
-    continuous ok true (var ok &&& (var stablefor <=? 50 ||| abs (var goalTemp - var roomTemp) <=? 1)) &
+    loop (assert (var stablefor <=? 50 ||| abs (var goalTemp - var roomTemp) <=? 1)) &
     continuous stablefor 0 (cond (var goalTemp ==? old 0 (var goalTemp)) (var stablefor+1) 0)
 
-run :: Valued f => Process -> f Env
-run p = vmap (last . fst) $ simulate 1 test p
+run :: Valued f => Process -> f ([Env], Result)
+run p = simulate 1 test p
   where
     test = replicate 10 (temp 25) ++ replicate 90 (temp 10)
     temp k = Map.singleton goalTemp (DoubleValue 25)
@@ -102,7 +101,7 @@ run p = vmap (last . fst) $ simulate 1 test p
 test = runIdentity $ run (system cgood)
 tesT = runIdentity $ run (systeM cgood)
 
-test', tesT' :: Val Env
+test', tesT' :: Val ([Env], Result)
 test' = run (system cgood)
 tesT' = run (systeM cgood)
 

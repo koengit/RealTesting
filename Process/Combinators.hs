@@ -71,9 +71,9 @@ ite :: Expr -> Step -> Step -> Step
 ite = If
 
 -- Assumptions and assertions
-assume, assert :: Expr -> Step -> Step
-assume = Assume
-assert = Assert
+assume, assert :: Expr -> Step
+assume e = Assume e skip
+assert e = Assert e skip
 
 -- Define a variable whose value changes with every step
 continuous :: Var -> Expr -> Expr -> Process

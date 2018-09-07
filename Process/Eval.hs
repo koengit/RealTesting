@@ -20,8 +20,8 @@ class Valued f where
   vfail :: String -> f a
   vbind :: Ord b => f a -> (a -> f b) -> f b
   vifThenElse :: Ord a => f Bool -> f a -> f a -> f a
-  vprune :: Ord a => f a -> f a
-  vprune = id
+  vprune :: (Ord a, Ord b) => (a -> b) -> f a -> f a
+  vprune _ = id
   veq :: f Double -> f Double -> f Bool
   vgeq :: f Double -> f Double -> f Bool
 
@@ -138,9 +138,12 @@ simulate delta inputs process =
   foldl sim (val (Map.empty, [], OK)) (zip (Map.empty:inputs) (start process:repeat (step process)))
   where
     sim state (input, step) =
-      vprune $ vbind state $ \(env, history, err) ->
+      vprune badness $ vbind state $ \(env, history, err) ->
         case err of
           OK ->
             vmap (\(env, res) -> (env, env:history, res)) $
               execStep delta (Map.union input env) step
           _ -> val (env, history, err)
+    badness (_, _, PreconditionFailed _) = 0
+    badness (_, _, OK) = 1
+    badness (_, _, PostconditionFailed _) = 2

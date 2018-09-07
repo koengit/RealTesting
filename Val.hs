@@ -129,10 +129,10 @@ smash (Val vs) =
 
 --------------------------------------------------------------------------------
 
-forget :: Ord a => Val a -> Val a
-forget (Val xs) = Val (sort (take 10 (sortBy (comparing worst) xs)))
+forget :: (Ord a, Ord b) => (a -> b) -> Val a -> Val a
+forget badness (Val xs) = Val (sort (take 10 (reverse (sortBy (comparing best) xs))))
  where
-  worst (_,a) = -howTrue a
+  best (x,a) = (isTrue a, badness x, howTrue a)
 
 propVal :: Val Bool -> VBool
 propVal (Val bs) = foldr1 (&&+) [ if b then v else nt v | (b,v) <- bs ]
@@ -335,7 +335,7 @@ ship2 as = ss
  where
   vs = zipWith (+) (pre 0 vs) as
   xs = zipWith (+) (pre 0 xs) vs
-  ss = map forget $ pre (val B) (zipWith h xs ss)
+  ss = map (forget (const ())) $ pre (val B) (zipWith h xs ss)
 
   h x s =
     ifThenElse (x <=? (-100)) (val A) $

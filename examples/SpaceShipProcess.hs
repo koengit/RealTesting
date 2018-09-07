@@ -18,7 +18,7 @@ check =
       ite (var state ==? 0 &&& var position >=?  100)
         (set state 1)
         (ite (var state ==? 1 &&& var position <=? -100) (set state 2)
-          (assert (var position <=? 100))))
+          (ite (var state ==? 2) (assert (var position <=? 100)) skip)))
 
 test :: Valued f => [Double] -> f ([Env], Result)
 test vals = simulate 1 envs (ship & check)

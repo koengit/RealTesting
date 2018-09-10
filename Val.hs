@@ -130,7 +130,7 @@ smash (Val vs) =
 --------------------------------------------------------------------------------
 
 forget :: (Ord a, Ord b) => (a -> b) -> Val a -> Val a
-forget badness (Val xs) = Val (sort (take 10 (reverse (sortBy (comparing best) xs))))
+forget badness (Val xs) = Val (sort (take 100 (reverse (sortBy (comparing best) xs))))
  where
   best (x,a) = (isTrue a, badness x, howTrue a)
 

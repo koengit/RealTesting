@@ -17,11 +17,11 @@ process start step =
     step = step }
 
 -- Do something only on the first step, or only after the first step
-initially, loop :: Step -> Process
-initially p = process p skip
+first, loop :: Step -> Process
+first p = process p skip
 loop p = process skip p
 
--- A typeclass for things that can be executed in parallel
+-- Parallel composition
 class Par a where
   -- A process that does nothing
   skip :: a
@@ -84,6 +84,22 @@ continuous x start step =
 switch :: Expr -> Process -> Process -> Process
 switch cond p1 p2 =
   combine (&) (If cond) p1 p2
+
+-- Sequential composition
+sequential :: Process -> Expr -> Process -> Process
+sequential p e q =
+  name $ \x ->
+    combine
+      (\_ _ -> (start p & set x (bool False)))
+      (\_ _ ->
+        (ite (var x)
+          (step q)
+          (ite e (set x (bool True) & start q)
+            (step p))))
+      p q
+
+wait :: Expr -> Process -> Process
+wait e p = sequential skip e p
 
 ----------------------------------------------------------------------
 -- Combinators for building expressions

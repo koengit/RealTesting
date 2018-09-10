@@ -12,13 +12,10 @@ ship = continuous position 0 (integral (integral (var acceleration)))
 
 check :: Process
 check =
-  name $ \state ->
-    initially (set state (double 0)) &
-    loop (
-      ite (var state ==? 0 &&& var position >=?  100)
-        (set state 1)
-        (ite (var state ==? 1 &&& var position <=? -100) (set state 2)
-          (ite (var state ==? 2) (assert (var position <=? 100)) skip)))
+  sequential skip (var position >=? 100) $
+  sequential skip (var position <=? -100) $
+  sequential skip (var position >=? 100) $
+    first (assert false)
 
 test :: Valued f => [Double] -> f ([Env], Result)
 test vals = simulate 1 envs (ship & check)

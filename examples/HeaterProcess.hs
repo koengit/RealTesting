@@ -1,6 +1,7 @@
 -- module Heater where
 
 import Process
+import Process.QuickCheck
 import qualified Data.Map as Map
 import Data.Functor.Identity
 import Val(Val(..), mapVal)
@@ -19,6 +20,10 @@ goalTemp = Global "goalTemp"
 roomTemp = Global "roomTemp"
 heaterTemp = Global "heaterTemp"
 pump = Global "pump"
+
+-- input types
+types :: Types
+types = Map.singleton goalTemp (Discrete, Real (15, 25))
 
 -- the system
 system :: Control -> Process
@@ -82,18 +87,18 @@ controlleR (k_p,k_i,k_d) =
   changeGoalTemp = abs (var goalTemp - old 0 (var goalTemp)) >=? 1
 
 cgood :: Control
---cgood = (3.997591176733649e-3,8.194771741046325e-5,5.618398605936785e-3)
---cgood = (5.0e-3,1.1446889636416996e-4,5.0e-3)
-cgood = (1.2e-2,1.1446889636416996e-4,5.0e-3)
+cgood = (3.997591176733649e-3,8.194771741046325e-5,5.618398605936785e-3)
+-- cgood = (5.0e-3,1.1446889636416996e-4,5.0e-3)
+-- cgood = (1.2e-2,1.1446889636416996e-4,5.0e-3)
 
 property :: Process
 property =
   name $ \stablefor ->
-    loop (assert (var stablefor <=? 50 ||| abs (var goalTemp - var roomTemp) <=? 1)) &
-    continuous stablefor 0 (cond (var goalTemp ==? old 0 (var goalTemp)) (var stablefor+1) 0)
+    let stablefor = integralReset 1 (var goalTemp /=? old 0 (var goalTemp)) in
+    loop (assert "temperature not close enough" (stablefor <=? 50 ||| abs (var goalTemp - var roomTemp) <=? 1))
 
 run :: Valued f => Process -> f ([Env], Result)
-run p = simulate 1 test p
+run p = simulate 1 test (lower stdPrims p)
   where
     test = replicate 10 (temp 25) ++ replicate 90 (temp 10)
     temp k = Map.singleton goalTemp (DoubleValue 25)
@@ -109,3 +114,9 @@ main =
   sequence_ [putStrLn (show v ++ ": " ++ show k) | (k, v) <- xs]
   where
     Val xs = test'
+
+prop_heater =
+  checkAssertions 1 300 types (lower stdPrims (system cgood))
+
+prop_heateR =
+  checkAssertions 1 300 types (lower stdPrims (systeM cgood))

@@ -15,7 +15,7 @@ check =
   sequential skip (var position >=? 100) $
   sequential skip (var position <=? -100) $
   sequential skip (var position >=? 100) $
-    first (assert false)
+    first (assert "reached destination" False)
 
 test :: Valued f => [Double] -> f ([Env], Result)
 test vals = simulate 1 envs (ship & check)

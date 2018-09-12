@@ -39,10 +39,10 @@ instance Par Step where
 
   If e s1 s2 & s3 =
     If e (s1 & s3) (s2 & s3)
-  Assume e s1 & s2 =
-    Assume e (s1 & s2)
-  Assert e s1 & s2 =
-    Assert e (s1 & s2)
+  Assume str e s1 & s2 =
+    Assume str e (s1 & s2)
+  Assert str e s1 & s2 =
+    Assert str e (s1 & s2)
   Update m1 & Update m2 =
     Update (Map.unionWith f m1 m2)
     where
@@ -71,9 +71,9 @@ ite :: Expr -> Step -> Step -> Step
 ite = If
 
 -- Assumptions and assertions
-assume, assert :: Expr -> Step
-assume e = Assume e skip
-assert e = Assert e skip
+assume, assert :: String -> Expr -> Step
+assume str e = Assume str e skip
+assert str e = Assert str e skip
 
 -- Define a variable whose value changes with every step
 continuous :: Var -> Expr -> Expr -> Process

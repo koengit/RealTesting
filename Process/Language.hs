@@ -25,10 +25,10 @@ data Process =
   } deriving (Eq, Typeable, Data)
 
 data Step =
-   If Expr Step Step         -- if-then-else
- | Assume Expr Step        -- check precondition
- | Assert Expr Step        -- check postcondition
- | Update (Map Var Expr) -- update variables
+   If Expr Step Step       -- if-then-else
+ | Assume String Expr Step -- check precondition
+ | Assert String Expr Step -- check postcondition
+ | Update (Map Var Expr)   -- update variables
  deriving (Eq, Typeable, Data)
 
 data Expr =

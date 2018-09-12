@@ -26,8 +26,8 @@ simplifyStep =
       If e
         (propagateBool e True s1)
         (propagateBool e False s2)
-    simpStep (Assume (Bool True) s) = s
-    simpStep (Assert (Bool True) s) = s
+    simpStep (Assume _ (Bool True) s) = s
+    simpStep (Assert _ (Bool True) s) = s
     simpStep s = s
 
 simplifyExpr :: Expr -> Expr

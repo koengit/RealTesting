@@ -35,11 +35,11 @@ instance Pretty Process where
 instance Pretty Step where
   pPrint (If e s1 s2) =
     ppIfThenElse (pPrint e) (pPrint s1) (pPrint s2)
-  pPrint (Assume e s) =
-    hang (text "assume") 2 (pPrint e) $$
+  pPrint (Assume msg e s) =
+    hang (text "assume" <+> text (show msg)) 2 (pPrint e) $$
     pPrint s
-  pPrint (Assert e s) =
-    hang (text "assert") 2 (pPrint e) $$
+  pPrint (Assert msg e s) =
+    hang (text "assert" <+> text (show msg)) 2 (pPrint e) $$
     pPrint s
   pPrint (Update m)
     | Map.null m = text "skip"

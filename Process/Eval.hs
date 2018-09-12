@@ -8,9 +8,13 @@ import Control.Monad
 import Data.Functor.Identity
 import Process.Language
 import Process.Pretty()
+import Text.PrettyPrint.HughesPJClass
 
 type Env = Map Var Value
-data Value = DoubleValue Double | BoolValue Bool deriving (Eq, Ord, Show)
+data Value = DoubleValue Double | BoolValue Bool deriving (Eq, Ord)
+instance Show Value where
+  show (DoubleValue x) = show x
+  show (BoolValue x) = show x
 
 class Valued f where
   -- Very much like Monad, but with if-then-else and Ord constraints
@@ -108,9 +112,13 @@ eval delta env (Cond e1 e2 e3) =
     (eval delta env e2)
     (eval delta env e3)
 eval _ _ e =
-  vfail ("dont't know how to evaluate " ++ show e)
+  vfail $ show $
+    sep [
+      text "don't know how to evaluate",
+      nest 2 (pPrint e),
+      text "(try using 'lower stdPrims' before simulating)"]
 
-data Result = OK | PreconditionFailed Expr | PostconditionFailed Expr
+data Result = OK | PreconditionFailed String | PostconditionFailed String
   deriving (Eq, Ord, Show)
 
 execStep :: Valued f => Double -> Env -> Step -> f (Env, Result)
@@ -118,14 +126,14 @@ execStep delta env (If e s1 s2) =
   vifThenElse (vmap boolVal $ eval (Just delta) env e)
     (execStep delta env s1)
     (execStep delta env s2)
-execStep delta env (Assume e s) =
+execStep delta env (Assume str e s) =
   vifThenElse (vmap boolVal $ eval (Just delta) env e)
     (execStep delta env s)
-    (val (env, PreconditionFailed e))
-execStep delta env (Assert e s) =
+    (val (env, PreconditionFailed str))
+execStep delta env (Assert str e s) =
   vifThenElse (vmap boolVal $ eval (Just delta) env e)
     (execStep delta env s)
-    (val (env, PostconditionFailed e))
+    (val (env, PostconditionFailed str))
 execStep delta env (Update m) =
   -- N.B. Map.union is left-biased
   -- Non-valued version: val (Map.union (Map.map (eval (Just delta) env) m) env, OK)

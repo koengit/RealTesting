@@ -137,6 +137,10 @@ infixr 2 |||
 (|||) :: Expr -> Expr -> Expr
 (|||) x y = nott (nott x &&& nott y)
 
+infixr 0 ==>
+(==>) :: Expr -> Expr -> Expr
+x ==> y = nott x ||| y
+
 bool :: Bool -> Expr
 bool = Bool
 

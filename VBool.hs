@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, UndecidableInstances, TypeSynonymInstances, FlexibleInstances, DataKinds, DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE FlexibleContexts, UndecidableInstances, TypeSynonymInstances, FlexibleInstances, DataKinds, DeriveGeneric, DeriveAnyClass, DeriveDataTypeable #-}
 module VBool where
 
 import Badness
@@ -7,6 +7,7 @@ import Data.List
 import Data.Reflection
 import Data.Ord
 import GHC.Generics
+import Data.Data
 
 infix  4 ==%
 infixr 3 &&%, &&+, &&^
@@ -16,7 +17,7 @@ infixr 1 ==>%
 --------------------------------------------------------------------------------
 
 data VBool = VFalse Inf | VTrue Inf -- x non-negative
- deriving Eq
+ deriving (Eq, Data)
 instance Ord VBool where
   compare = comparing howTrue
 
@@ -34,7 +35,7 @@ instance Arbitrary VBool where
 
 -- A nonzero real number which can also be infinite.
 data Inf = Finite Double | Infinite
-  deriving (Eq, Ord, Generic, CoArbitrary)
+  deriving (Eq, Ord, Generic, CoArbitrary, Data)
 
 plusInf :: Inf -> Inf -> Inf
 plusInf (Finite x) (Finite y) = Finite (x+y)
@@ -81,6 +82,10 @@ instance Arbitrary Inf where
 false, true :: VBool
 false = VFalse Infinite
 true  = VTrue Infinite
+
+bool :: Bool -> VBool
+bool False = false
+bool True = true
 
 bad, good :: Real a => a -> VBool
 bad x = VFalse (toInf x)

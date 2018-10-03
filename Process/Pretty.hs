@@ -26,8 +26,8 @@ instance Show Var where
 instance Pretty Process where
   pPrint p =
     vcat $
-      [ hang (text "start") 2 (pPrint (start p)) | nonempty (start p) ] ++
-      [ hang (text "step") 2 (pPrint (step p)) | nonempty (step p) ]
+      [ hang (text "initial") 2 (pPrint (start p)) | nonempty (start p) ] ++
+      [ hang (text "timestep") 2 (pPrint (step p)) | nonempty (step p) ]
     where
       nonempty (Update m) = Map.size m > 0
       nonempty _ = True

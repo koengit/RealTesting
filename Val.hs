@@ -147,11 +147,9 @@ instance Process.Valued Val where
   vmap = mapVal
   vlift = liftVal
   vbind x f = smash (mapVal f x)
-  vfail = error
-  vifThenElse = ifThenElse
+  vifThenElse = ifThenElse . vbool
   vprune = forget
-  veq = (==?)
-  vgeq = (>=?)
+  vbool = vbool
 
 --------------------------------------------------------------------------------
 

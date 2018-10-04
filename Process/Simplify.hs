@@ -33,7 +33,7 @@ simplifyStep =
 simplifyExpr :: Expr -> Expr
 simplifyExpr = fixpoint (transformBi simp)
   where
-    simp e | Just x <- eval Nothing Map.empty e = constant x
+    simp e | Just x <- evalM Nothing Map.empty e = constant x
     simp (Cond (Bool True) e _) = e
     simp (Cond (Bool False) _ e) = e
     simp (Cond _ e e') | e == e' = e

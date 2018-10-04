@@ -33,6 +33,8 @@ class Valued f where
   vifThenElse :: Ord a => VBool -> f a -> f a -> f a
   vprune :: (Ord a, Ord b) => (a -> b) -> f a -> f a
   vprune _ = id
+  vbool :: VBool -> f Bool
+  vbool = val . isTrue
 
   -- A default instance for monads.
   default val :: Monad f => a -> f a
@@ -128,24 +130,27 @@ execStep delta env (Assert str e s) =
   vifThenElse (boolVal $ eval (Just delta) env e)
     (execStep delta env s)
     (val (env, PostconditionFailed str))
--- execStep delta env (Update m) =
---   -- N.B. Map.union is left-biased
---   -- Non-valued version: val (Map.union (Map.map (eval (Just delta) env) m) env, OK)
---   vmap (\xs -> (Map.union (Map.fromList xs) env, OK)) $
---     vsequence [ vmap (x,) (eval (Just delta) env y) | (x, y) <- Map.toList m ]
+execStep delta env (Update m) =
+  -- N.B. Map.union is left-biased
+  -- Non-valued version: val (Map.union (Map.map (eval (Just delta) env) m) env, OK)
+  vmap (\xs -> (Map.union (Map.fromList xs) env, OK)) $
+    vsequence [ single x (eval (Just delta) env y) | (x, y) <- Map.toList m ]
+  where
+    single x (DoubleVValue y) = val (x, DoubleValue y)
+    single x (VBoolVValue vb) = vmap (x,) (vmap BoolValue (vbool vb))
 
--- simulate :: Valued f => Double -> [Env] -> Process -> f ([Env], Result)
--- simulate delta inputs process =
---   vmap (\(_, history, err) -> (reverse history, err)) $
---   foldl sim (val (Map.empty, [], OK)) (zip (Map.empty:inputs) (start process:repeat (step process)))
---   where
---     sim state (input, step) =
---       vprune badness $ vbind state $ \(env, history, err) ->
---         case err of
---           OK ->
---             vmap (\(env, res) -> (env, env:history, res)) $
---               execStep delta (Map.union input env) step
---           _ -> val (env, history, err)
---     badness (_, _, PreconditionFailed _) = 0
---     badness (_, _, OK) = 1
---     badness (_, _, PostconditionFailed _) = 2
+simulate :: Valued f => Double -> [Env] -> Process -> f ([Env], Result)
+simulate delta inputs process =
+  vmap (\(_, history, err) -> (tail (reverse history), err)) $
+  foldl sim (val (Map.empty, [], OK)) (zip (Map.empty:inputs) (start process:repeat (step process)))
+  where
+    sim state (input, step) =
+      vprune badness $ vbind state $ \(env, history, err) ->
+        case err of
+          OK ->
+            vmap (\(env, res) -> (env, env:history, res)) $
+              execStep delta (Map.union input env) step
+          _ -> val (env, history, err)
+    badness (_, _, PreconditionFailed _) = 0
+    badness (_, _, OK) = 1
+    badness (_, _, PostconditionFailed _) = 2

@@ -2,7 +2,12 @@
 module Process.Combinators where
 
 import Process.Language
+import Process.Simplify
 import qualified Data.Map.Strict as Map
+import Data.Generics.Uniplate.Data
+import qualified Data.Set as Set
+import Data.List
+import Data.Maybe
 
 ----------------------------------------------------------------------
 -- Combinators for building processes.
@@ -105,18 +110,6 @@ wait e p = sequential skip e p
 -- Combinators for building expressions
 ----------------------------------------------------------------------
 
-instance Num Expr where
-  fromInteger = Double . fromInteger
-  x + y = Plus x y
-  x * y = Times x y
-  negate x = Negate x
-  abs x = Cond (x >=? 0) x (negate x)
-  signum x = Cond (x ==? 0) 0 (Cond (x >=? 0) 1 (-1))
-
-instance Fractional Expr where
-  fromRational = Double . fromRational
-  recip x = Power x (-1)
-
 var :: Var -> Expr
 var = Var
 
@@ -175,8 +168,29 @@ integralReset e reset = primitive Temporal "integral" [e, reset]
 integral :: Expr -> Expr
 integral e = integralReset e false
 
+smartIntegral :: Expr -> Expr
+smartIntegral = linear f
+  where
+    f (Primitive Temporal "deriv" [e]) = e
+    f e = integral e
+
 deriv :: Expr -> Expr
 deriv e = primitive Temporal "deriv" [e]
+
+derivDegree :: Var -> Expr -> Int
+derivDegree x e =
+  maximum (mapMaybe deg (universeBi e))
+  where
+    deg (Var y) | x == y = Just 0
+    deg (Primitive Temporal "deriv" [e]) = fmap succ (deg e)
+    deg _ = Nothing
+
+linear :: (Expr -> Expr) -> Expr -> Expr
+linear f (Plus e1 e2) = Plus (linear f e1) (linear f e2)
+linear f (Negate e) = Negate (linear f e)
+linear f (Times (Double k) e) = Times (Double k) (linear f e)
+linear f (Times e (Double k)) = Times (linear f e) (Double k)
+linear f e = f e
 
 -- Desugarings for the primitives
 stdPrims :: [(String, Prim)]
@@ -206,3 +220,43 @@ stdPrims =
 clamp :: Expr -> Expr -> Expr -> Expr
 clamp lo hi x = maxx lo (minn hi x)
 
+-- Define a variable by means of a differential equation in t.
+differentialEquation :: Var -> Expr -> Expr -> Process
+differentialEquation x initial e =
+  continuous x initial (solve x (foldn (derivDegree x e) smartIntegral e))
+  where
+    foldn 0 _ x = x
+    foldn n f x = f (foldn (n-1) f x)
+
+-- Given e = L(y)/L(x),
+-- transferFunction y x s e finds the differential equation defining y.
+transferFunction :: Var -> Var -> Var -> Expr -> Expr
+transferFunction y x s e =
+  -- L(y)/L(x) = k*num/denom
+  -- L(y)*denom = k*L(x)*num
+  inverseLaplace s (var y * product denom - Double k * var x * product num)
+  where
+    (k, num, denom) = factors' e
+
+-- Given e = L(x),
+-- laplaceFunction x s e finds the differential equation defining x.
+laplaceFunction :: Var -> Var -> Expr -> Expr
+laplaceFunction x s e =
+  replaceGlobal (deriv (Double 0)) (Double 0) $
+  replaceGlobal (deriv (Double 1)) (Double 0) $
+  replaceGlobal (deriv (var t)) (Double 1) $
+  transferFunction x t s e
+  where
+    t = Global "laplaceT"
+
+-- Try to invert the Laplace transform. Only handles differential equations.
+inverseLaplace :: Var -> Expr -> Expr
+inverseLaplace s = simplifyExpr . linear eliminate . expand . simplifyExpr
+  where
+    eliminate e
+      | s `Set.notMember` vars e = e
+      | var s `elem` es =
+        Double k * deriv (eliminate (product (es \\ [var s])))
+      | otherwise = error "couldn't eliminate s from Laplace transform"
+      where
+        (k, es) = factors e

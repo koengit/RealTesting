@@ -64,6 +64,18 @@ data Var =
 -- The definition of a primitive
 type Prim = [Expr] -> (Expr -> Process) -> Process
 
+instance Num Expr where
+  fromInteger = Double . fromInteger
+  x + y = Plus x y
+  x * y = Times x y
+  negate x = Negate x
+  abs x = Cond (Positive x) x (negate x)
+  signum x = Cond (Zero x) 0 (Cond (Positive x) 1 (-1))
+
+instance Fractional Expr where
+  fromRational = Double . fromRational
+  recip x = Power x (-1)
+
 ----------------------------------------------------------------------
 -- Free variables, renaming and replacement
 ----------------------------------------------------------------------

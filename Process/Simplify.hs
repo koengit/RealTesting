@@ -7,6 +7,8 @@ import Utils
 import Data.Data
 import Process.Language
 import Process.Eval
+import Data.Either
+import Data.List
 
 -- Do algebraic simplifications and similar
 simplify :: Process -> Process
@@ -161,3 +163,31 @@ eliminateCond =
     isBool _ = False
 
     findConds e = [cond | Cond cond _ _ <- functionalExprs e]
+
+-- Expand out multiplication.
+expand :: Expr -> Expr
+expand = fixpoint (transformBi expand1)
+  where
+    expand1 (Times x (Plus y z)) = Plus (Times x y) (Times x z)
+    expand1 (Times (Plus x y) z) = Plus (Times x z) (Times y z)
+    expand1 (Power e 0) = 1
+    expand1 (Power e (Double k)) | k >= 1 = e * Power e (Double (k-1))
+    expand1 x = x
+
+-- Given a variable x and an expression e (which should contain x),
+-- solve the equation e=0 for x. A pretty lousy implementation.
+solve :: Var -> Expr -> Expr
+solve x e
+  | Var x `elem` functionalExprs result = error "couldn't solve"
+  | otherwise = result
+  -- x*xs + rest = 0
+  -- => x = -rest/xs
+  where
+    result = negate (sum rest) / sum xs
+    (pos, neg) = terms (expand e)
+    (xs, rest) = partitionEithers (map classify (pos ++ map negate neg))
+    classify e
+      | Var x `elem` es = Left (Double k * product (es \\ [Var x]))
+      | otherwise = Right e
+      where
+        (k, es) = factors e

@@ -183,7 +183,7 @@ stdPrims :: [(String, Prim)]
 stdPrims =
   [("deriv",
     \[e] k ->
-      -- old delta is the time different from the previous state to this
+      -- old delta is the time difference from the previous state to this
       k ((e - old 0 e) * old 0 (1 / delta))),
    ("integral",
     \[e, reset] k ->

@@ -167,6 +167,31 @@ factors (Negate e) = (negate k, xs)
 factors (Double x) = (x, [])
 factors e = (1, [e])
 
+-- Separates a product into numerator and denominator parts and a constant.
+-- Removes common factors from numerator and denominator.
+factors' :: Expr -> (Double, [Expr], [Expr])
+factors' e = (k, num \\ denom, denom \\ num)
+  where
+    (k, num, denom) = go e
+
+    go (Times e1 e2) = (k1 * k2, num1 ++ num2, denom1 ++ denom2)
+      where
+        (k1, num1, denom1) = go e1
+        (k2, num2, denom2) = go e2
+    go (Negate e) = (-k, num, denom)
+      where
+        (k, num, denom) = go e
+    go (Power e (Negate x)) = (recip k, denom, num)
+      where
+        (k, num, denom) = go e
+        power e =
+          case x of
+            Double 1 -> e
+            _ -> Power e x
+    go (Power e (Double x)) | x < 0 = go (Power e (Negate (Double (-x))))
+    go (Double x) = (x, [], [])
+    go e = (1, [e], [])
+
 -- Separates a conjunction into its conjuncts.
 -- Returns Nothing if contradictory.
 conjuncts :: Expr -> Maybe ([Expr], [Expr])

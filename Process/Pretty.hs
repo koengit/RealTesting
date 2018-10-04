@@ -89,7 +89,7 @@ ppExp n e@Times{} =
   maybeParens (n > 6) $
   fsep $ punctuate (text " *") $
   map (ppExp 7) $
-    [Double k | k /= 1] ++ es
+    [Double k | k /= 1 || null es] ++ es
   where
     (k, es) = factors e
 ppExp n (Power e (Double (-1))) =

@@ -10,6 +10,7 @@ import Data.List
 import Utils
 import Data.Data
 import Control.Monad
+import Data.Either
 
 ----------------------------------------------------------------------
 -- Processes
@@ -66,7 +67,12 @@ type Prim = [Expr] -> (Expr -> Process) -> Process
 
 instance Num Expr where
   fromInteger = Double . fromInteger
+  -- This simplification gets sum to behave reasonably
+  Double 0 + x = x
+  x + Double 0 = x
   x + y = Plus x y
+  Double 1 * x = x
+  x * Double 1 = x
   x * y = Times x y
   negate x = Negate x
   abs x = Cond (Positive x) x (negate x)
@@ -153,9 +159,10 @@ terms e
 
 -- Separates a sum into positive and negative parts and a constant
 terms' :: Expr -> (Double, [Expr], [Expr])
-terms' e = (k, pos \\ neg, neg \\ pos) -- remove common terms
+terms' e = (k, pos', neg')
   where
     (k, pos, neg) = go e
+    (pos', neg') = collectLikeTerms (map factors pos ++ map (factors . Negate) neg)
 
     go (Plus e1 e2) = (k1 + k2, pos1 ++ pos2, neg1 ++ neg2)
       where
@@ -166,6 +173,20 @@ terms' e = (k, pos \\ neg, neg \\ pos) -- remove common terms
         (k, pos, neg) = go e
     go (Double x) = (x, [], [])
     go e = (0, [e], [])
+
+    -- Look for terms which are the same modulo a constant factor,
+    -- e.g. 3x^2 and 4x^2, collect them together
+    collectLikeTerms =
+      partitionEithers .
+      map toTerm .
+      map addFactors .
+      partitionBy (sort . snd)
+      where
+        addFactors es@((_, fs):_) =
+          (sum (map fst es), fs)
+        toTerm (k, es)
+          | k < 0 = Right (Double (negate k) * product es)
+          | otherwise = Left (Double k * product es)
 
 -- Separates a product into constant and non-constant parts
 factors :: Expr -> (Double, [Expr])

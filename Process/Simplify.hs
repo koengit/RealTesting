@@ -176,9 +176,9 @@ expand = fixpoint (transformBi expand1)
 
 -- Given a variable x and an expression e (which should contain x),
 -- solve the equation e=0 for x. A pretty lousy implementation.
-solve :: Var -> Expr -> Expr
+solve :: Expr -> Expr -> Expr
 solve x e
-  | Var x `elem` functionalExprs result = error "couldn't solve"
+  | x `elem` functionalExprs result = error "couldn't solve"
   | otherwise = result
   -- x*xs + rest = 0
   -- => x = -rest/xs
@@ -187,7 +187,7 @@ solve x e
     (pos, neg) = terms (expand e)
     (xs, rest) = partitionEithers (map classify (pos ++ map negate neg))
     classify e
-      | Var x `elem` es = Left (Double k * product (es \\ [Var x]))
+      | x `elem` es = Left (Double k * product (es \\ [x]))
       | otherwise = Right e
       where
         (k, es) = factors e

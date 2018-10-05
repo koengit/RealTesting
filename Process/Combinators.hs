@@ -223,7 +223,7 @@ clamp lo hi x = maxx lo (minn hi x)
 -- Define a variable by means of a differential equation in t.
 differentialEquation :: Var -> Expr -> Expr -> Process
 differentialEquation x initial e =
-  continuous x initial (solve x (foldn (derivDegree x e) smartIntegral e))
+  continuous x initial (solve (Var x) (foldn (derivDegree x e) smartIntegral e))
   where
     foldn 0 _ x = x
     foldn n f x = f (foldn (n-1) f x)

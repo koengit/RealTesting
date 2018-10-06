@@ -52,18 +52,18 @@ control delta output input setpoint p = go env0
     setpoint = 1
     tick = 0.6
     speed = 6
-    horizon = 4.8
+    horizon = 8
 
     unitResponse =
       get output $
-        foldn (ceiling (horizon / tick)) (exec tick 1) env0
+        foldn horizon (exec tick 1) env0
 
     controlled :: Env -> Double
     controlled env =
       get input env + (reference - freeResponse) / unitResponse
       where
         err = setpoint - get output env
-        reference = setpoint - exp (-horizon / speed) * err
+        reference = setpoint - exp (-fromIntegral horizon * tick / speed) * err
         freeResponse =
           get output $
-            foldn (ceiling (horizon / tick)) (exec tick (get input env)) env
+            foldn horizon (exec tick (get input env)) env

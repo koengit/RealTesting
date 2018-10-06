@@ -43,32 +43,27 @@ control delta output input setpoint p = go env0
     go env = envs ++ go (last envs)
       where
         inp = controlled env
-        one env = fst (runIdentity (execStep delta (Map.insert input (DoubleValue inp) env) (step p)))
-        envs = take (truncate (tick / delta)) (iterate one env)
-    update env =
-      fst (runIdentity (execStep delta (Map.insert input (DoubleValue (controlled env)) env) (step p)))
+        envs = take (ceiling (tick / delta)) (tail (iterate (exec delta inp) env))
+    exec delta x env = fst (runIdentity (execStep delta (Map.insert input (DoubleValue x) env) (step p)))
+    get var env = x
+      where
+        Just (DoubleValue x) = Map.lookup var env
 
+    setpoint = 1
     tick = 0.6
+    speed = 6
+    horizon = 4.8
+
+    unitResponse =
+      get output $
+        foldn (ceiling (horizon / tick)) (exec tick 1) env0
 
     controlled :: Env -> Double
     controlled env =
-      theInput + ((ref future - free (truncate future)) / response (truncate future))
+      get input env + (reference - freeResponse) / unitResponse
       where
-        DoubleValue theInput = Map.findWithDefault (DoubleValue 0) input env
-        DoubleValue theOutput = Map.findWithDefault (DoubleValue 0) output env
-
-        setpoint = 1
-        err = setpoint - theOutput
-        speed = 6
-        future = 5 / tick
-        ref i = setpoint - exp (-i * tick / speed) * err
-        free i = s
-          where
-            Just (DoubleValue s) = Map.lookup output env'
-            env' = foldn i (fst . runIdentity . flip (execStep tick) (step p) . Map.insert input (DoubleValue theInput)) env
-
-        response i =
-          case Map.lookup output env of
-            Just (DoubleValue x) -> x
-          where
-            env = last (fst (runIdentity (simulate tick (replicate i (Map.singleton input (DoubleValue 1))) p)))
+        err = setpoint - get output env
+        reference = setpoint - exp (-horizon / speed) * err
+        freeResponse =
+          get output $
+            foldn (ceiling (horizon / tick)) (exec tick (get input env)) env

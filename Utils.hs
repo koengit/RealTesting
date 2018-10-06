@@ -43,3 +43,7 @@ fixpoint f x = fxp x
       | otherwise = fxp y
       where
         y = f x
+
+foldn :: Int -> (a -> a) -> a -> a
+foldn 0 _ x = x
+foldn n f x = f (foldn (n-1) f x)

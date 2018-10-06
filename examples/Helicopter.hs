@@ -40,29 +40,35 @@ control :: Double -> Var -> Var -> Double -> Process -> [Env]
 control delta output input setpoint p = go env0
   where
     env0 = fst (runIdentity (execStep delta (Map.singleton input (DoubleValue 0)) (start p)))
-    go env = env:go (update env)
+    go env = envs ++ go (last envs)
+      where
+        inp = controlled env
+        one env = fst (runIdentity (execStep delta (Map.insert input (DoubleValue inp) env) (step p)))
+        envs = take (truncate (tick / delta)) (iterate one env)
     update env =
       fst (runIdentity (execStep delta (Map.insert input (DoubleValue (controlled env)) env) (step p)))
 
+    tick = 0.6
+
     controlled :: Env -> Double
     controlled env =
-      theInput + ((ref future - free future) / response future)
+      theInput + ((ref future - free (truncate future)) / response (truncate future))
       where
         DoubleValue theInput = Map.findWithDefault (DoubleValue 0) input env
         DoubleValue theOutput = Map.findWithDefault (DoubleValue 0) output env
 
         setpoint = 1
         err = setpoint - theOutput
-        coeff = 0.3
-        future = 1
-        ref i = setpoint - exp (-fromIntegral i * coeff) * err
+        speed = 6
+        future = 5 / tick
+        ref i = setpoint - exp (-i * tick / speed) * err
         free i = s
           where
             Just (DoubleValue s) = Map.lookup output env'
-            env' = foldn i (fst . runIdentity . flip (execStep 1) (step p) . Map.insert input (DoubleValue theInput)) env
+            env' = foldn i (fst . runIdentity . flip (execStep tick) (step p) . Map.insert input (DoubleValue theInput)) env
 
         response i =
           case Map.lookup output env of
             Just (DoubleValue x) -> x
           where
-            env = last (fst (runIdentity (simulate 1 (replicate i (Map.singleton input (DoubleValue 1))) p)))
+            env = last (fst (runIdentity (simulate tick (replicate i (Map.singleton input (DoubleValue 1))) p)))
